@@ -19,6 +19,7 @@ npm install zustand nanoid --workspace=client
 ```
 
 **Установленные пакеты:**
+
 - `zustand` — легковесное state management решение для React
 - `nanoid` — генератор уникальных ID (для идентификаторов объектов)
 
@@ -32,8 +33,8 @@ Zustand store для управления объектами сцены с по�
 // client/src/store/useSceneStore.ts
 
 interface SceneStore {
-  objects: SceneObjectData[];     // Массив всех объектов сцены
-  selectedId: string | null;       // ID выбранного объекта
+  objects: SceneObjectData[]; // Массив всех объектов сцены
+  selectedId: string | null; // ID выбранного объекта
 
   // CRUD операции
   addObject: (type: ObjectType) => void;
@@ -72,9 +73,9 @@ Store для состояния редактора (не зависит от о�
 export type TransformMode = 'translate' | 'rotate' | 'scale';
 
 interface EditorStore {
-  transformMode: TransformMode;   // Режим gizmo (будет использован на Этапе 4)
-  showGrid: boolean;              // Видимость сетки пола
-  snapToGrid: boolean;            // Привязка к сетке (будет использована позже)
+  transformMode: TransformMode; // Режим gizmo (будет использован на Этапе 4)
+  showGrid: boolean; // Видимость сетки пола
+  snapToGrid: boolean; // Привязка к сетке (будет использована позже)
 
   setTransformMode: (mode: TransformMode) => void;
   toggleGrid: () => void;
@@ -83,6 +84,7 @@ interface EditorStore {
 ```
 
 **Начальное состояние:**
+
 - `transformMode: 'translate'`
 - `showGrid: true`
 - `snapToGrid: false`
@@ -97,23 +99,23 @@ interface EditorStore {
 // client/src/components/canvas/SceneObject.tsx
 
 interface SceneObjectProps {
-  data: SceneObjectData;          // Данные объекта
-  isSelected: boolean;            // Флаг выделения
-  onClick: (event: ThreeEvent<MouseEvent>) => void;  // Обработчик клика
+  data: SceneObjectData; // Данные объекта
+  isSelected: boolean; // Флаг выделения
+  onClick: (event: ThreeEvent<MouseEvent>) => void; // Обработчик клика
 }
 ```
 
 **Поддерживаемые типы геометрии:**
 
-| Тип       | Геометрия                          | Параметры             |
-|-----------|------------------------------------|-----------------------|
-| box       | `<boxGeometry>`                    | 1×1×1                 |
-| sphere    | `<sphereGeometry>`                 | radius 0.5, 32 сегментов |
-| cylinder  | `<cylinderGeometry>`               | radius 0.5, height 1  |
-| cone      | `<coneGeometry>`                   | radius 0.5, height 1  |
-| plane     | `<planeGeometry>`                  | 1×1, double-sided     |
-| torus     | `<torusGeometry>`                  | radius 0.5, tube 0.2  |
-| model     | Placeholder (wireframe box)        | Для будущей реализации GLTF |
+| Тип      | Геометрия                   | Параметры                   |
+| -------- | --------------------------- | --------------------------- |
+| box      | `<boxGeometry>`             | 1×1×1                       |
+| sphere   | `<sphereGeometry>`          | radius 0.5, 32 сегментов    |
+| cylinder | `<cylinderGeometry>`        | radius 0.5, height 1        |
+| cone     | `<coneGeometry>`            | radius 0.5, height 1        |
+| plane    | `<planeGeometry>`           | 1×1, double-sided           |
+| torus    | `<torusGeometry>`           | radius 0.5, tube 0.2        |
+| model    | Placeholder (wireframe box) | Для будущей реализации GLTF |
 
 **Визуальная подсветка выделенных объектов:**
 
@@ -127,6 +129,7 @@ const emissiveIntensity = isSelected ? 0.3 : 0;
 - Цвет подсветки хорошо виден на объектах любого цвета
 
 **Общие свойства для всех мешей:**
+
 - `castShadow` — объект отбрасывает тени
 - `receiveShadow` — объект принимает тени
 - `onClick` — raycasting-обработчик клика (встроенный в R3F)
@@ -140,6 +143,7 @@ const emissiveIntensity = isSelected ? 0.3 : 0;
 **Изменения:**
 
 1. **Подключение к store:**
+
    ```typescript
    const objects = useSceneStore((state) => state.objects);
    const selectedId = useSceneStore((state) => state.selectedId);
@@ -148,6 +152,7 @@ const emissiveIntensity = isSelected ? 0.3 : 0;
    ```
 
 2. **Рендер объектов из store:**
+
    ```typescript
    {objects.map((obj) => (
      <SceneObject
@@ -163,6 +168,7 @@ const emissiveIntensity = isSelected ? 0.3 : 0;
    ```
 
 3. **Условное отображение сетки:**
+
    ```typescript
    {showGrid && <Grid />}
    ```
@@ -195,6 +201,7 @@ const objectTypes: { type: ObjectType; label: string }[] = [
 ```
 
 **Список объектов сцены:**
+
 - Отображение всех объектов с именами
 - Подсветка выбранного объекта (синий фон)
 - Кнопка удаления (✕) для каждого объекта
@@ -202,10 +209,12 @@ const objectTypes: { type: ObjectType; label: string }[] = [
 - Сообщение "Сцена пуста" если объектов нет
 
 **Переключатель сетки:**
+
 - Кнопка "Показать сетку" с галочкой при включении
 - Вызывает `toggleGrid()` из useEditorStore
 
 **Правая панель — Свойства:**
+
 - Показывает имя выбранного объекта
 - Кнопка "Снять выделение"
 - Placeholder для будущей панели свойств (Этап 5)
@@ -256,11 +265,13 @@ npm run dev:client
 ### Выделение объектов
 
 **Клик по объекту:**
+
 - Объект подсвечивается оранжевым (emissive glow)
 - В списке объектов подсвечивается синим
 - В правой панели отображается имя объекта
 
 **Снятие выделения:**
+
 - Кнопка "Снять выделение" в правой панели
 - Подсветка исчезает
 
@@ -309,6 +320,7 @@ R3F предоставляет встроенный raycasting:
 Вместо outline или wireframe используется emissive:
 
 **Преимущества:**
+
 - Работает на всех типах геометрии
 - Не требует дополнительных проходов рендеринга
 - Визуально приятный эффект "свечения"
@@ -352,6 +364,7 @@ import type { SceneObjectData, ObjectType } from '@shared/types/scene';
 **Этап 3: Каталог объектов + Drag & Drop**
 
 Задачи:
+
 - Красивый каталог с превью объектов
 - Drag & Drop из каталога на canvas
 - Raycasting на плоскость пола для определения 3D-координат drop

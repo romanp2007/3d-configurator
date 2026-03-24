@@ -22,6 +22,19 @@
 
 ---
 
+### [Этап 3: Drag & Drop + Каталог объектов](2026-03-24-stage-3-drag-drop.md) (2026-03-24) - ✅ ЗАВЕРШЕНО
+
+Реализован визуальный каталог объектов с drag & drop функциональностью. Установлены react-dnd зависимости, создан ObjectCatalog с Unicode иконками и draggable элементами, CanvasDropTarget для обработки drop на canvas. Добавлена поддержка горячих клавиш: Delete/Backspace (удаление объекта), Escape (снятие выделения). Объекты перетаскиваются из каталога и появляются на сцене в случайной позиции рядом с центром. Визуальная обратная связь при drag (полупрозрачность, подсветка canvas).
+
+📄 **[Подробное описание →](2026-03-24-stage-3-drag-drop.md)**
+
+**Основные файлы:**
+[ObjectCatalog.tsx](../client/src/components/ui/ObjectCatalog.tsx), [CanvasDropTarget.tsx](../client/src/components/ui/CanvasDropTarget.tsx), [useKeyboardShortcuts.ts](../client/src/hooks/useKeyboardShortcuts.ts), [App.tsx](../client/src/App.tsx), [useSceneStore.ts](../client/src/store/useSceneStore.ts)
+
+**Технологии:** react-dnd, react-dnd-html5-backend, DndProvider, useDrag, useDrop, keyboard events
+
+---
+
 ### [Этап 2: Zustand Store + объекты сцены](2026-03-24-stage-2-zustand-store.md) (2026-03-24) - ✅ ЗАВЕРШЕНО
 
 Реализовано управление состоянием через Zustand. Созданы два store: useSceneStore (управление объектами, CRUD, выделение) и useEditorStore (UI-состояние). Реализован компонент SceneObject для рендеринга 6 типов геометрии (box, sphere, cylinder, cone, plane, torus). Добавлен функциональный UI для добавления/удаления объектов, выделение по клику с визуальной подсветкой (emissive), список объектов в сайдбаре, переключатель видимости сетки.

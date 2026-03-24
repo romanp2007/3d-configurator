@@ -9,6 +9,7 @@ import { Grid } from './Grid';
 import { Lights } from './Lights';
 import { CameraControls } from './CameraControls';
 import { SceneObject } from './SceneObject';
+import { CanvasDropZone } from '../ui/CanvasDropTarget';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useEditorStore } from '@/store/useEditorStore';
 
@@ -39,6 +40,9 @@ export function SceneView() {
 
       {/* Управление камерой */}
       <CameraControls />
+
+      {/* Drop zone для drag & drop */}
+      <CanvasDropZone />
 
       {/* Объекты сцены из store */}
       {objects.map((obj) => (

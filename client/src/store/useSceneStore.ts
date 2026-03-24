@@ -13,7 +13,7 @@ interface SceneStore {
   selectedId: string | null;
 
   // CRUD операции
-  addObject: (type: ObjectType) => void;
+  addObject: (type: ObjectType) => string; // Возвращает ID созданного объекта
   removeObject: (id: string) => void;
   updateObject: (id: string, patch: Partial<SceneObjectData>) => void;
 
@@ -59,10 +59,13 @@ export const useSceneStore = create<SceneStore>((set) => ({
   selectedId: null,
 
   // Добавить объект
-  addObject: (type) =>
+  addObject: (type) => {
+    const newObject = createDefaultObject(type);
     set((state) => ({
-      objects: [...state.objects, createDefaultObject(type)],
-    })),
+      objects: [...state.objects, newObject],
+    }));
+    return newObject.id;
+  },
 
   // Удалить объект
   removeObject: (id) =>
