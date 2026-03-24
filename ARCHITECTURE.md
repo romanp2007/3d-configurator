@@ -3,35 +3,38 @@
 ## 1. Tech Stack
 
 ### Frontend
-| Technology | Purpose |
-|---|---|
-| **React 18** | UI framework |
-| **TypeScript 5** | Type safety |
-| **Three.js** + **@react-three/fiber** | 3D rendering (declarative React-обёртка над Three.js) |
-| **@react-three/drei** | Готовые хелперы: TransformControls (gizmo), OrbitControls, Environment и др. |
-| **Zustand** | State management (состояние сцены, undo/redo, UI) |
-| **Vite** | Build tool & dev server |
-| **TailwindCSS** | Utility-first стилизация UI-панелей |
-| **react-dnd** | Drag & drop объектов из каталога на сцену |
-| **html2canvas** / Three.js `renderer.toDataURL()` | Скриншот / экспорт сцены |
+
+| Technology                                        | Purpose                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **React 18**                                      | UI framework                                                                 |
+| **TypeScript 5**                                  | Type safety                                                                  |
+| **Three.js** + **@react-three/fiber**             | 3D rendering (declarative React-обёртка над Three.js)                        |
+| **@react-three/drei**                             | Готовые хелперы: TransformControls (gizmo), OrbitControls, Environment и др. |
+| **Zustand**                                       | State management (состояние сцены, undo/redo, UI)                            |
+| **Vite**                                          | Build tool & dev server                                                      |
+| **TailwindCSS**                                   | Utility-first стилизация UI-панелей                                          |
+| **react-dnd**                                     | Drag & drop объектов из каталога на сцену                                    |
+| **html2canvas** / Three.js `renderer.toDataURL()` | Скриншот / экспорт сцены                                                     |
 
 ### Backend
-| Technology | Purpose |
-|---|---|
-| **Node.js 20** + **Express** | REST API |
-| **TypeScript** | Shared types between FE/BE |
-| **PostgreSQL 16** | Хранение проектов (сцены, пользователи) |
-| **Prisma** | ORM с типизированными запросами и миграциями |
-| **Docker** + **Docker Compose** | Контейнеризация (API + DB) |
-| **Multer** | Загрузка пользовательских текстур / моделей |
-| **Zod** | Валидация входных данных API |
+
+| Technology                      | Purpose                                      |
+| ------------------------------- | -------------------------------------------- |
+| **Node.js 20** + **Express**    | REST API                                     |
+| **TypeScript**                  | Shared types between FE/BE                   |
+| **PostgreSQL 16**               | Хранение проектов (сцены, пользователи)      |
+| **Prisma**                      | ORM с типизированными запросами и миграциями |
+| **Docker** + **Docker Compose** | Контейнеризация (API + DB)                   |
+| **Multer**                      | Загрузка пользовательских текстур / моделей  |
+| **Zod**                         | Валидация входных данных API                 |
 
 ### DevOps / DX
-| Technology | Purpose |
-|---|---|
-| **ESLint + Prettier** | Linting & formatting |
-| **Vitest** | Unit-тесты |
-| **GitHub Actions** (опционально) | CI pipeline |
+
+| Technology                       | Purpose              |
+| -------------------------------- | -------------------- |
+| **ESLint + Prettier**            | Linting & formatting |
+| **Vitest**                       | Unit-тесты           |
+| **GitHub Actions** (опционально) | CI pipeline          |
 
 ---
 
@@ -171,7 +174,7 @@ interface SceneObjectData {
   id: string;
   name: string;
   type: 'box' | 'sphere' | 'cylinder' | 'cone' | 'plane' | 'torus' | 'model';
-  modelUrl?: string;            // Для type === 'model'
+  modelUrl?: string; // Для type === 'model'
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
@@ -190,15 +193,15 @@ interface SceneObjectData {
 
 ## 4. API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/scenes` | Список всех сцен (id, name, thumbnail, updatedAt) |
-| `GET` | `/api/scenes/:id` | Полные данные сцены |
-| `POST` | `/api/scenes` | Создать сцену |
-| `PUT` | `/api/scenes/:id` | Обновить сцену |
-| `DELETE` | `/api/scenes/:id` | Удалить сцену |
-| `POST` | `/api/assets/upload` | Загрузить текстуру/модель |
-| `GET` | `/api/assets/:filename` | Получить загруженный файл |
+| Method   | Endpoint                | Description                                       |
+| -------- | ----------------------- | ------------------------------------------------- |
+| `GET`    | `/api/scenes`           | Список всех сцен (id, name, thumbnail, updatedAt) |
+| `GET`    | `/api/scenes/:id`       | Полные данные сцены                               |
+| `POST`   | `/api/scenes`           | Создать сцену                                     |
+| `PUT`    | `/api/scenes/:id`       | Обновить сцену                                    |
+| `DELETE` | `/api/scenes/:id`       | Удалить сцену                                     |
+| `POST`   | `/api/assets/upload`    | Загрузить текстуру/модель                         |
+| `GET`    | `/api/assets/:filename` | Получить загруженный файл                         |
 
 ---
 
