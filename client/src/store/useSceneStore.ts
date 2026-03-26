@@ -16,6 +16,7 @@ interface SceneStore {
   addObject: (type: ObjectType) => string; // Возвращает ID созданного объекта
   removeObject: (id: string) => void;
   updateObject: (id: string, patch: Partial<SceneObjectData>) => void;
+  duplicateObject: (id: string) => string; // Дублирует объект, возвращает ID копии
 
   // Выделение
   selectObject: (id: string) => void;
@@ -79,6 +80,31 @@ export const useSceneStore = create<SceneStore>((set) => ({
     set((state) => ({
       objects: state.objects.map((obj) => (obj.id === id ? { ...obj, ...patch } : obj)),
     })),
+
+  // Дублировать объект
+  duplicateObject: (id) => {
+    let newId = '';
+    set((state) => {
+      const original = state.objects.find((obj) => obj.id === id);
+      if (!original) return state;
+
+      // Создаем копию с новым ID и смещенной позицией
+      const duplicate: SceneObjectData = {
+        ...original,
+        id: nanoid(),
+        name: `${original.name} (копия)`,
+        position: [original.position[0] + 0.5, original.position[1], original.position[2] + 0.5],
+      };
+
+      newId = duplicate.id;
+
+      return {
+        objects: [...state.objects, duplicate],
+        selectedId: duplicate.id, // Автоматически выбираем дубликат
+      };
+    });
+    return newId;
+  },
 
   // Выделить объект
   selectObject: (id) =>
