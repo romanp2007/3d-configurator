@@ -9,13 +9,13 @@ import { SceneView } from './components/canvas/SceneView';
 import { ObjectCatalog } from './components/ui/ObjectCatalog';
 import { CanvasDropTarget } from './components/ui/CanvasDropTarget';
 import { Toolbar } from './components/ui/Toolbar';
+import { PropertiesPanel } from './components/ui/PropertiesPanel';
 import { useSceneStore } from './store/useSceneStore';
 import { useEditorStore } from './store/useEditorStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 function App() {
   const removeObject = useSceneStore((state) => state.removeObject);
-  const deselectAll = useSceneStore((state) => state.deselectAll);
   const objects = useSceneStore((state) => state.objects);
   const selectedId = useSceneStore((state) => state.selectedId);
   const toggleGrid = useEditorStore((state) => state.toggleGrid);
@@ -31,7 +31,7 @@ function App() {
         <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <h1 className="text-xl font-bold text-white">3D Scene Editor</h1>
-            <p className="text-xs text-gray-400 mt-1">Этап 4: Transform Gizmo</p>
+            <p className="text-xs text-gray-400 mt-1">Этап 5: Properties Panel</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {/* Каталог объектов с drag & drop */}
@@ -87,31 +87,7 @@ function App() {
         </CanvasDropTarget>
 
         {/* Правая панель - Properties */}
-        <aside className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
-          <div className="p-4 border-b border-gray-700">
-            <h2 className="text-lg font-semibold text-white">Свойства</h2>
-          </div>
-          <div className="flex-1 p-4">
-            {selectedId ? (
-              <div>
-                <p className="text-sm text-gray-300 mb-3">
-                  Выбран объект: {objects.find((o) => o.id === selectedId)?.name}
-                </p>
-                <button
-                  onClick={deselectAll}
-                  className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-                >
-                  Снять выделение
-                </button>
-                <p className="text-xs text-gray-400 mt-4">
-                  Панель свойств будет добавлена на Этапе 5
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">Выберите объект для просмотра свойств</p>
-            )}
-          </div>
-        </aside>
+        <PropertiesPanel />
       </div>
     </DndProvider>
   );
