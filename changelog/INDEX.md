@@ -22,6 +22,19 @@
 
 ---
 
+### [Этап 4: Transform Gizmo](2026-03-26-stage-4-transform-gizmo.md) (2026-03-26) - ✅ ЗАВЕРШЕНО
+
+Реализовано интерактивное гизмо для манипуляции объектами с тремя режимами трансформации (перемещение, вращение, масштабирование). Создан компонент TransformGizmo — обёртка над TransformControls из drei с синхронизацией в Zustand store. Добавлен Toolbar для переключения режимов и горячие клавиши W/E/R. Решены проблемы бесконечного цикла обновлений и двойной трансформации. OrbitControls автоматически отключается во время взаимодействия с гизмо.
+
+📄 **[Подробное описание →](2026-03-26-stage-4-transform-gizmo.md)**
+
+**Основные файлы:**
+[TransformGizmo.tsx](../client/src/components/canvas/TransformGizmo.tsx), [Toolbar.tsx](../client/src/components/ui/Toolbar.tsx), [useKeyboardShortcuts.ts](../client/src/hooks/useKeyboardShortcuts.ts), [CameraControls.tsx](../client/src/components/canvas/CameraControls.tsx), [SceneView.tsx](../client/src/components/canvas/SceneView.tsx)
+
+**Технологии:** @react-three/drei TransformControls, Three.js events (mouseDown/mouseUp), Zustand store sync, conditional rendering
+
+---
+
 ### [Этап 3: Drag & Drop + Каталог объектов](2026-03-24-stage-3-drag-drop.md) (2026-03-24) - ✅ ЗАВЕРШЕНО
 
 Реализован визуальный каталог объектов с drag & drop функциональностью. Установлены react-dnd зависимости, создан ObjectCatalog с Unicode иконками и draggable элементами, CanvasDropTarget для обработки drop на canvas. Добавлена поддержка горячих клавиш: Delete/Backspace (удаление объекта), Escape (снятие выделения). Объекты перетаскиваются из каталога и появляются на сцене в случайной позиции рядом с центром. Визуальная обратная связь при drag (полупрозрачность, подсветка canvas).

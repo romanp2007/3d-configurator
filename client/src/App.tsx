@@ -8,6 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { SceneView } from './components/canvas/SceneView';
 import { ObjectCatalog } from './components/ui/ObjectCatalog';
 import { CanvasDropTarget } from './components/ui/CanvasDropTarget';
+import { Toolbar } from './components/ui/Toolbar';
 import { useSceneStore } from './store/useSceneStore';
 import { useEditorStore } from './store/useEditorStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -30,7 +31,7 @@ function App() {
         <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <h1 className="text-xl font-bold text-white">3D Scene Editor</h1>
-            <p className="text-xs text-gray-400 mt-1">Этап 3: Drag & Drop</p>
+            <p className="text-xs text-gray-400 mt-1">Этап 4: Transform Gizmo</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {/* Каталог объектов с drag & drop */}
@@ -81,6 +82,7 @@ function App() {
 
         {/* Центральная часть - 3D Canvas */}
         <CanvasDropTarget>
+          <Toolbar />
           <SceneView />
         </CanvasDropTarget>
 

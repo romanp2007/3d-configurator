@@ -5,10 +5,15 @@
 
 import { OrbitControls } from '@react-three/drei';
 
-export function CameraControls() {
+interface CameraControlsProps {
+  enabled?: boolean;
+}
+
+export function CameraControls({ enabled = true }: CameraControlsProps) {
   return (
     <OrbitControls
       makeDefault
+      enabled={enabled}
       // Настройки зума
       minDistance={2}
       maxDistance={50}
