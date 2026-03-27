@@ -28,7 +28,7 @@ function App() {
         <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <h1 className="text-xl font-bold text-white">3D Scene Editor</h1>
-            <p className="text-xs text-gray-400 mt-1">Этап 6: Scene Hierarchy</p>
+            <p className="text-xs text-gray-400 mt-1">Этап 7: Undo/Redo</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {/* Каталог объектов с drag & drop */}

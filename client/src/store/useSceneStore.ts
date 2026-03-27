@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { temporal } from 'zundo';
 import { nanoid } from 'nanoid';
 import type { SceneObjectData, ObjectType } from '@shared/types/scene';
 
@@ -54,67 +55,76 @@ function createDefaultObject(type: ObjectType): SceneObjectData {
   };
 }
 
-export const useSceneStore = create<SceneStore>((set) => ({
-  // Начальное состояние
-  objects: [],
-  selectedId: null,
-
-  // Добавить объект
-  addObject: (type) => {
-    const newObject = createDefaultObject(type);
-    set((state) => ({
-      objects: [...state.objects, newObject],
-    }));
-    return newObject.id;
-  },
-
-  // Удалить объект
-  removeObject: (id) =>
-    set((state) => ({
-      objects: state.objects.filter((obj) => obj.id !== id),
-      selectedId: state.selectedId === id ? null : state.selectedId,
-    })),
-
-  // Обновить объект (partial update)
-  updateObject: (id, patch) =>
-    set((state) => ({
-      objects: state.objects.map((obj) => (obj.id === id ? { ...obj, ...patch } : obj)),
-    })),
-
-  // Дублировать объект
-  duplicateObject: (id) => {
-    let newId = '';
-    set((state) => {
-      const original = state.objects.find((obj) => obj.id === id);
-      if (!original) return state;
-
-      // Создаем копию с новым ID и смещенной позицией
-      const duplicate: SceneObjectData = {
-        ...original,
-        id: nanoid(),
-        name: `${original.name} (копия)`,
-        position: [original.position[0] + 0.5, original.position[1], original.position[2] + 0.5],
-      };
-
-      newId = duplicate.id;
-
-      return {
-        objects: [...state.objects, duplicate],
-        selectedId: duplicate.id, // Автоматически выбираем дубликат
-      };
-    });
-    return newId;
-  },
-
-  // Выделить объект
-  selectObject: (id) =>
-    set(() => ({
-      selectedId: id,
-    })),
-
-  // Снять выделение
-  deselectAll: () =>
-    set(() => ({
+export const useSceneStore = create<SceneStore>()(
+  temporal(
+    (set) => ({
+      // Начальное состояние
+      objects: [],
       selectedId: null,
-    })),
-}));
+
+      // Добавить объект
+      addObject: (type) => {
+        const newObject = createDefaultObject(type);
+        set((state) => ({
+          objects: [...state.objects, newObject],
+        }));
+        return newObject.id;
+      },
+
+      // Удалить объект
+      removeObject: (id) =>
+        set((state) => ({
+          objects: state.objects.filter((obj) => obj.id !== id),
+          selectedId: state.selectedId === id ? null : state.selectedId,
+        })),
+
+      // Обновить объект (partial update)
+      updateObject: (id, patch) =>
+        set((state) => ({
+          objects: state.objects.map((obj) => (obj.id === id ? { ...obj, ...patch } : obj)),
+        })),
+
+      // Дублировать объект
+      duplicateObject: (id) => {
+        let newId = '';
+        set((state) => {
+          const original = state.objects.find((obj) => obj.id === id);
+          if (!original) return state;
+
+          // Создаем копию с новым ID и смещенной позицией
+          const duplicate: SceneObjectData = {
+            ...original,
+            id: nanoid(),
+            name: `${original.name} (копия)`,
+            position: [
+              original.position[0] + 0.5,
+              original.position[1],
+              original.position[2] + 0.5,
+            ],
+          };
+
+          newId = duplicate.id;
+
+          return {
+            objects: [...state.objects, duplicate],
+            selectedId: duplicate.id, // Автоматически выбираем дубликат
+          };
+        });
+        return newId;
+      },
+
+      // Выделить объект
+      selectObject: (id) =>
+        set(() => ({
+          selectedId: id,
+        })),
+
+      // Снять выделение
+      deselectAll: () =>
+        set(() => ({
+          selectedId: null,
+        })),
+    }),
+    { limit: 50 }
+  )
+);

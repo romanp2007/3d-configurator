@@ -5,15 +5,30 @@
 import { useEffect } from 'react';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useEditorStore } from '@/store/useEditorStore';
+import { useHistoryStore } from '@/store/useHistoryStore';
 
 export function useKeyboardShortcuts() {
   const selectedId = useSceneStore((state) => state.selectedId);
   const removeObject = useSceneStore((state) => state.removeObject);
   const deselectAll = useSceneStore((state) => state.deselectAll);
   const setTransformMode = useEditorStore((state) => state.setTransformMode);
+  const { undo, redo } = useHistoryStore();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Ctrl+Z - Undo
+      if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+        return;
+      }
+
+      // Ctrl+Shift+Z - Redo
+      if (event.ctrlKey && event.shiftKey && event.key === 'Z') {
+        event.preventDefault();
+        redo();
+        return;
+      }
       // Delete / Backspace - удалить выбранный объект
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
         // Предотвращаем действие по умолчанию (навигацию назад для Backspace)
@@ -50,5 +65,5 @@ export function useKeyboardShortcuts() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedId, removeObject, deselectAll, setTransformMode]);
+  }, [selectedId, removeObject, deselectAll, setTransformMode, undo, redo]);
 }
