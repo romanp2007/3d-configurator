@@ -12,9 +12,10 @@ interface ToolbarProps {
   onScreenshot: () => void;
   onExportJson: () => void;
   onImportJson: (file: File) => void;
+  onHotkeys: () => void;
 }
 
-export function Toolbar({ onSave, onLoad, onScreenshot, onExportJson, onImportJson }: ToolbarProps) {
+export function Toolbar({ onSave, onLoad, onScreenshot, onExportJson, onImportJson, onHotkeys }: ToolbarProps) {
   const transformMode = useEditorStore((state) => state.transformMode);
   const setTransformMode = useEditorStore((state) => state.setTransformMode);
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
@@ -117,6 +118,15 @@ export function Toolbar({ onSave, onLoad, onScreenshot, onExportJson, onImportJs
             e.target.value = '';
           }}
         />
+
+        {/* Справка */}
+        <button
+          onClick={onHotkeys}
+          className="px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+          title="Горячие клавиши (F1)"
+        >
+          <span className="text-sm font-medium">?</span>
+        </button>
 
         {/* Разделитель */}
         <div className="w-px bg-gray-600 mx-1" />

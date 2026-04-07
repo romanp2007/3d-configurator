@@ -22,6 +22,32 @@
 
 ---
 
+### [Этап 13: Полировка и финализация](2026-04-08-stage-13-polish.md) (2026-04-08) - ✅ ЗАВЕРШЕНО
+
+Toast-система (Zustand store + ToastContainer с анимацией slide-in) подключена к SaveLoadDialog, MaterialSection, ObjectCatalog, импорту JSON. SceneErrorBoundary (class component) оборачивает SceneView во всех layout-режимах. HotkeyDialog — таблица клавиш по группам, открывается кнопкой «?» в Toolbar или F1. README полностью переписан. docker-compose.prod.yml для production-деплоя.
+
+📄 **[Подробное описание →](2026-04-08-stage-13-polish.md)**
+
+**Основные файлы:**
+[useToastStore.ts](../client/src/store/useToastStore.ts), [ToastContainer.tsx](../client/src/components/ui/ToastContainer.tsx), [SceneErrorBoundary.tsx](../client/src/components/canvas/SceneErrorBoundary.tsx), [HotkeyDialog.tsx](../client/src/components/ui/HotkeyDialog.tsx), [README.md](../README.md)
+
+**Технологии:** Zustand toast store, React Error Boundary, CSS keyframe animation, Docker Compose healthcheck
+
+---
+
+### [Этап 12: Мобильная адаптация](2026-04-08-stage-12-mobile.md) (2026-04-08) - ✅ ЗАВЕРШЕНО
+
+Три layout-режима: Desktop (3 колонки без изменений), Tablet (сворачиваемые sidebar и panel с анимацией), Mobile (fullscreen canvas + bottom sheets + MobileToolbar). Хук useBreakpoint по ширине окна. PropertiesPanel рефакторен с bare-пропом для встраивания без обёртки. viewport user-scalable=no для корректного pinch-zoom в OrbitControls.
+
+📄 **[Подробное описание →](2026-04-08-stage-12-mobile.md)**
+
+**Основные файлы:**
+[useBreakpoint.ts](../client/src/hooks/useBreakpoint.ts), [MobileToolbar.tsx](../client/src/components/ui/MobileToolbar.tsx), [PropertiesPanel.tsx](../client/src/components/ui/PropertiesPanel.tsx), [App.tsx](../client/src/App.tsx)
+
+**Технологии:** resize listener, CSS transitions, OrbitControls touch, bottom sheet
+
+---
+
 ### [Этап 11: Загрузка ассетов](2026-04-07-stage-11-assets.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
 
 Реализована загрузка текстур (PNG/JPG) и 3D-моделей (GLB/GLTF). Backend: Multer роут POST /api/assets/upload (50MB лимит, валидация типов, защита от path traversal), GET для отдачи файлов и списка. Frontend: useTexture + Suspense для текстур, useGLTF + clone для GLB-моделей. Кнопка загрузки текстуры в MaterialSection, секция «3D Модели» в ObjectCatalog с кнопкой «+ GLB».

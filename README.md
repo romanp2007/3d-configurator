@@ -1,178 +1,144 @@
 # 3D Scene Editor
 
-Браузерный редактор 3D-сцен — упрощённый аналог инспектора Unity для веба. Пользователи могут размещать объекты на 3D-канвасе, трансформировать их через gizmo-контролы, редактировать свойства через React UI панели и сохранять/загружать сцены через REST API.
+Браузерный редактор 3D-сцен — упрощённый аналог инспектора Unity для веба. Пользователи могут размещать объекты на 3D-канвасе, трансформировать их через gizmo-контролы, редактировать свойства через React UI панели, загружать текстуры и GLB-модели, а также сохранять/загружать сцены через REST API.
 
 ## Стек технологий
 
-### Frontend
+**Frontend:** React 18 + TypeScript 5 · Three.js + @react-three/fiber + @react-three/drei · Zustand + zundo · Vite · TailwindCSS
 
-- **React 18** + **TypeScript 5** — UI framework
-- **Three.js** + **@react-three/fiber** + **@react-three/drei** — 3D рендеринг
-- **Zustand** + **zundo** — State management с undo/redo
-- **Vite** — Build tool & dev server
-- **TailwindCSS** — Стилизация
+**Backend:** Node.js 20 + Express · PostgreSQL 16 · Prisma · Multer · Docker
 
-### Backend
+## Возможности
 
-- **Node.js 20** + **Express** — REST API
-- **PostgreSQL 16** — База данных
-- **Prisma** — ORM
-- **Docker** + **Docker Compose** — Контейнеризация
+- Добавление 3D-примитивов (куб, сфера, цилиндр, конус, плоскость, тор) через drag & drop
+- Загрузка пользовательских GLB/GLTF-моделей
+- Transform gizmo — перемещение, вращение, масштабирование (W/E/R)
+- Редактирование материала: цвет, metalness, roughness, текстура
+- Scene Hierarchy — дерево объектов с переименованием и видимостью
+- Undo / Redo (Ctrl+Z / Ctrl+Shift+Z) — история 50 состояний
+- Сохранение/загрузка сцен на сервер с thumbnail-превью
+- Экспорт/импорт сцены в JSON
+- Скриншот сцены (PNG)
+- Адаптивный интерфейс: Desktop / Tablet / Mobile
 
 ## Требования
 
 - Node.js >= 20.0.0
 - npm >= 10.0.0
-- Docker & Docker Compose (для БД)
+- Docker & Docker Compose
 
-## Установка
-
-1. Клонировать репозиторий:
+## Быстрый старт (Development)
 
 ```bash
+# 1. Клонировать репозиторий
 git clone <repository-url>
 cd 3d-configurator
-```
 
-2. Установить зависимости:
-
-```bash
+# 2. Установить зависимости
 npm install
-```
 
-3. Скопировать `.env.example` в `.env`:
-
-```bash
+# 3. Настроить переменные окружения
 cp .env.example .env
-```
+cp .env.example server/.env   # Prisma читает .env из папки server/
 
-4. Запустить PostgreSQL через Docker:
-
-```bash
+# 4. Запустить PostgreSQL
 docker-compose up -d
-```
 
-5. Выполнить миграции базы данных:
+# 5. Применить миграции БД
+cd server && npx prisma migrate dev --name init && cd ..
 
-```bash
-cd server
-npx prisma migrate dev --name init
-npx prisma generate
-cd ..
-```
-
-## Запуск
-
-### Development mode
-
-Запустить клиент и сервер одновременно:
-
-```bash
+# 6. Запустить приложение
 npm run dev
 ```
 
-Или запустить отдельно:
-
-**Только клиент** (Vite dev server):
-
-```bash
-npm run dev:client
-# или
-cd client && npm run dev
-```
-
-**Только сервер** (Express API):
-
-```bash
-npm run dev:server
-# или
-cd server && npm run dev
-```
-
 После запуска:
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:3001
+- **Health check:** http://localhost:3001/api/health
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:3001
-- Health check: http://localhost:3001/api/health
-
-### Production build
+## Production-деплой
 
 ```bash
-npm run build
+# Собрать и запустить через Docker Compose
+docker-compose -f docker-compose.prod.yml up -d --build
+
+# Применить миграции (первый запуск)
+docker exec 3d-configurator-server sh -c "cd /app && npx prisma migrate deploy"
+```
+
+Переменные окружения для production (`.env`):
+```
+POSTGRES_PASSWORD=<сильный_пароль>
+CORS_ORIGIN=https://your-domain.com
 ```
 
 ## Скрипты
 
 ```bash
-# Разработка
 npm run dev              # Запустить клиент и сервер
-npm run dev:client       # Запустить только клиент
-npm run dev:server       # Запустить только сервер
+npm run dev:client       # Только Vite dev server
+npm run dev:server       # Только Express API
+npm run build            # Сборка всех workspace
+npm run lint             # ESLint
+npm run format           # Prettier
 
-# Сборка
-npm run build            # Собрать все workspace
-
-# База данных
 cd server
 npx prisma migrate dev   # Создать и применить миграции
-npx prisma studio        # Открыть Prisma Studio (GUI для БД)
-npx prisma generate      # Сгенерировать Prisma Client
-
-# Линтинг и форматирование
-npm run lint             # Запустить ESLint
-npm run format           # Форматировать код через Prettier
-npm run format:check     # Проверить форматирование
-
-# Тестирование
-npm run test             # Запустить тесты (Vitest)
+npx prisma studio        # GUI для базы данных
 ```
 
 ## Структура проекта
 
 ```
 3d-configurator/
-├── client/              # Frontend (React + Vite)
-├── server/              # Backend (Express + Prisma)
-├── shared/              # Общие TypeScript типы
-├── docker-compose.yml   # PostgreSQL контейнер
-├── Dockerfile           # Production образ для server
-└── package.json         # Root workspace config
+├── client/                     # Frontend (React + Vite)
+│   └── src/
+│       ├── api/                # HTTP-клиенты (scenesApi, assetsApi)
+│       ├── components/
+│       │   ├── canvas/         # R3F компоненты (SceneView, SceneObject, ...)
+│       │   └── ui/             # DOM компоненты (Toolbar, PropertiesPanel, ...)
+│       ├── hooks/              # useKeyboardShortcuts, useScreenshot, ...
+│       ├── store/              # Zustand stores (scene, editor, history, toast)
+│       └── utils/              # sceneSerializer
+├── server/                     # Backend (Express + Prisma)
+│   ├── prisma/                 # schema.prisma, migrations/
+│   ├── src/
+│   │   ├── lib/                # prisma.ts singleton
+│   │   ├── middleware/         # errorHandler
+│   │   ├── routes/             # scenes.ts, assets.ts
+│   │   ├── schemas/            # Zod-схемы
+│   │   └── services/           # scene.service.ts
+│   └── uploads/                # Загруженные файлы (текстуры, GLB)
+├── shared/types/               # Общие TypeScript-типы
+├── docker-compose.yml          # PostgreSQL для разработки
+├── docker-compose.prod.yml     # Production (PostgreSQL + Server)
+└── Dockerfile                  # Multi-stage build для server
 ```
 
-## Текущий статус
+## Горячие клавиши
 
-**✅ Этап 0: Инициализация проекта — ЗАВЕРШЁН**
+| Клавиша | Действие |
+|---------|----------|
+| W | Режим перемещения |
+| E | Режим вращения |
+| R | Режим масштабирования |
+| Ctrl+Z | Отменить |
+| Ctrl+Shift+Z | Повторить |
+| Ctrl+S | Сохранить сцену |
+| Ctrl+O | Открыть сцену |
+| Delete / Backspace | Удалить объект |
+| Escape | Снять выделение |
+| F1 | Справка по клавишам |
 
-Реализовано:
+## Архитектура
 
-- ✅ Монорепо с npm workspaces (client, server, shared)
-- ✅ Vite + React + TypeScript (frontend)
-- ✅ Express + TypeScript (backend)
-- ✅ Общие TypeScript типы
-- ✅ ESLint + Prettier
-- ✅ TailwindCSS
-- ✅ Docker Compose (PostgreSQL)
-- ✅ Dockerfile для server
-- ✅ Vite proxy настроен (/api → http://localhost:3001)
-- ✅ Prisma ORM настроен
-- ✅ .env конфигурация
+Подробнее в [`CLAUDE.md`](CLAUDE.md) и [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
-**Следующий этап:** Этап 1 — Базовая 3D-сцена
-
-## Разработка
-
-Проект следует поэтапному плану разработки (см. `IMPLEMENTATION_PLAN.md`). Каждый этап — это логически завершённый блок функциональности.
-
-### Архитектура
-
-Подробнее об архитектуре проекта см. `ARCHITECTURE.md`.
-
-Ключевые особенности:
-
-- **Двухслойная frontend архитектура**: Canvas layer (R3F) + UI layer (React DOM)
-- **Три Zustand store**: SceneStore, EditorStore, HistoryStore
-- **JSON в PostgreSQL**: Сцены хранятся как единый JSON-документ
-- **Общие типы**: Типы импортируются из `shared/` как на FE, так и на BE
+**Ключевые особенности:**
+- **Двухслойная frontend архитектура:** Canvas layer (R3F) + UI layer (React DOM) — не смешиваются
+- **Три Zustand store:** SceneStore (объекты, CRUD), EditorStore (UI-состояние), HistoryStore (undo/redo через zundo)
+- **JSON в PostgreSQL:** сцена хранится как единый JSON-документ в поле `data`
+- **Общие типы:** `shared/types/scene.ts` импортируется и на FE, и на BE
 
 ## Лицензия
 

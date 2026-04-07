@@ -10,9 +10,10 @@ import { useHistoryStore } from '@/store/useHistoryStore';
 interface ShortcutCallbacks {
   onSave?: () => void;
   onLoad?: () => void;
+  onHotkeys?: () => void;
 }
 
-export function useKeyboardShortcuts({ onSave, onLoad }: ShortcutCallbacks = {}) {
+export function useKeyboardShortcuts({ onSave, onLoad, onHotkeys }: ShortcutCallbacks = {}) {
   const selectedId = useSceneStore((state) => state.selectedId);
   const removeObject = useSceneStore((state) => state.removeObject);
   const deselectAll = useSceneStore((state) => state.deselectAll);
@@ -21,6 +22,13 @@ export function useKeyboardShortcuts({ onSave, onLoad }: ShortcutCallbacks = {})
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // F1 - Справка по горячим клавишам
+      if (event.key === 'F1') {
+        event.preventDefault();
+        onHotkeys?.();
+        return;
+      }
+
       // Ctrl+S - Сохранить
       if (event.ctrlKey && event.key === 's' && !event.shiftKey) {
         event.preventDefault();
@@ -84,5 +92,5 @@ export function useKeyboardShortcuts({ onSave, onLoad }: ShortcutCallbacks = {})
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedId, removeObject, deselectAll, setTransformMode, undo, redo, onSave, onLoad]);
+  }, [selectedId, removeObject, deselectAll, setTransformMode, undo, redo, onSave, onLoad, onHotkeys]);
 }

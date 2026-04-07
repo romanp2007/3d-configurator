@@ -1,13 +1,20 @@
 /**
  * Панель свойств выбранного объекта
  * Отображает секции для редактирования transform, material и других параметров
+ *
+ * bare=true — без обёртки <aside>, для встраивания в bottom sheet на мобильных
  */
 
 import { useSceneStore } from '@/store/useSceneStore';
 import { TransformSection } from './properties/TransformSection';
 import { MaterialSection } from './properties/MaterialSection';
 
-export function PropertiesPanel() {
+interface PropertiesPanelProps {
+  /** Без внешней <aside>-обёртки — для bottom sheet на мобильных */
+  bare?: boolean;
+}
+
+function PanelContent() {
   const selectedId = useSceneStore((state) => state.selectedId);
   const objects = useSceneStore((state) => state.objects);
   const updateObject = useSceneStore((state) => state.updateObject);
@@ -16,48 +23,51 @@ export function PropertiesPanel() {
 
   if (!selectedObject) {
     return (
-      <aside className="w-80 bg-gray-800 p-4 flex flex-col border-l border-gray-700">
-        <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-          Выберите объект для редактирования
-        </div>
-      </aside>
+      <div className="flex-1 flex items-center justify-center text-gray-500 text-sm p-8">
+        Выберите объект для редактирования
+      </div>
     );
   }
 
   return (
-    <aside className="w-80 bg-gray-800 p-4 flex flex-col border-l border-gray-700 overflow-y-auto">
-      {/* Заголовок панели */}
+    <div className="p-4">
+      {/* Имя объекта */}
+      <h2 className="text-white font-semibold text-lg mb-3">Свойства объекта</h2>
+
       <div className="mb-4">
-        <h2 className="text-white font-semibold text-lg mb-2">Свойства объекта</h2>
-
-        {/* Имя объекта */}
-        <div className="mb-3">
-          <label className="block text-gray-400 text-xs mb-1">Имя</label>
-          <input
-            type="text"
-            value={selectedObject.name}
-            onChange={(e) => updateObject(selectedObject.id, { name: e.target.value })}
-            className="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
-          />
-        </div>
-
-        {/* Чекбокс видимости */}
-        <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={selectedObject.visible}
-            onChange={(e) => updateObject(selectedObject.id, { visible: e.target.checked })}
-            className="w-4 h-4 rounded border-gray-600 bg-gray-700 focus:ring-blue-500"
-          />
-          <span>Visible</span>
-        </label>
+        <label className="block text-gray-400 text-xs mb-1">Имя</label>
+        <input
+          type="text"
+          value={selectedObject.name}
+          onChange={(e) => updateObject(selectedObject.id, { name: e.target.value })}
+          className="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+        />
       </div>
 
-      {/* Transform Section */}
-      <TransformSection object={selectedObject} onUpdate={updateObject} />
+      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer mb-4">
+        <input
+          type="checkbox"
+          checked={selectedObject.visible}
+          onChange={(e) => updateObject(selectedObject.id, { visible: e.target.checked })}
+          className="w-4 h-4 rounded border-gray-600 bg-gray-700 focus:ring-blue-500"
+        />
+        <span>Visible</span>
+      </label>
 
-      {/* Material Section */}
+      <TransformSection object={selectedObject} onUpdate={updateObject} />
       <MaterialSection object={selectedObject} onUpdate={updateObject} />
+    </div>
+  );
+}
+
+export function PropertiesPanel({ bare = false }: PropertiesPanelProps) {
+  if (bare) {
+    return <PanelContent />;
+  }
+
+  return (
+    <aside className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col overflow-y-auto">
+      <PanelContent />
     </aside>
   );
 }

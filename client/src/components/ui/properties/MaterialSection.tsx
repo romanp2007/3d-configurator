@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import type { SceneObjectData } from '@shared/types/scene';
 import { uploadAsset } from '@/api/assetsApi';
+import { toast } from '@/store/useToastStore';
 
 interface MaterialSectionProps {
   object: SceneObjectData;
@@ -29,8 +30,11 @@ export function MaterialSection({ object, onUpdate }: MaterialSectionProps) {
     try {
       const asset = await uploadAsset(file);
       handleMaterialChange({ textureUrl: asset.url });
+      toast.success('Текстура загружена');
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
+      setUploadError(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }

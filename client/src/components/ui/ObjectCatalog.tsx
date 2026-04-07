@@ -8,6 +8,7 @@ import { useDrag } from 'react-dnd';
 import type { ObjectType } from '@shared/types/scene';
 import { uploadAsset, listAssets, type AssetListItem } from '@/api/assetsApi';
 import { useSceneStore } from '@/store/useSceneStore';
+import { toast } from '@/store/useToastStore';
 
 interface CatalogItem {
   type: ObjectType;
@@ -98,8 +99,11 @@ export function ObjectCatalog() {
     try {
       await uploadAsset(file);
       await refreshModels();
+      toast.success(`Модель «${file.name}» загружена`);
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
+      setUploadError(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
