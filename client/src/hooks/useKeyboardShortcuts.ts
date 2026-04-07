@@ -7,7 +7,12 @@ import { useSceneStore } from '@/store/useSceneStore';
 import { useEditorStore } from '@/store/useEditorStore';
 import { useHistoryStore } from '@/store/useHistoryStore';
 
-export function useKeyboardShortcuts() {
+interface ShortcutCallbacks {
+  onSave?: () => void;
+  onLoad?: () => void;
+}
+
+export function useKeyboardShortcuts({ onSave, onLoad }: ShortcutCallbacks = {}) {
   const selectedId = useSceneStore((state) => state.selectedId);
   const removeObject = useSceneStore((state) => state.removeObject);
   const deselectAll = useSceneStore((state) => state.deselectAll);
@@ -16,6 +21,20 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Ctrl+S - Сохранить
+      if (event.ctrlKey && event.key === 's' && !event.shiftKey) {
+        event.preventDefault();
+        onSave?.();
+        return;
+      }
+
+      // Ctrl+O - Открыть
+      if (event.ctrlKey && event.key === 'o') {
+        event.preventDefault();
+        onLoad?.();
+        return;
+      }
+
       // Ctrl+Z - Undo
       if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
         event.preventDefault();
@@ -65,5 +84,5 @@ export function useKeyboardShortcuts() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedId, removeObject, deselectAll, setTransformMode, undo, redo]);
+  }, [selectedId, removeObject, deselectAll, setTransformMode, undo, redo, onSave, onLoad]);
 }

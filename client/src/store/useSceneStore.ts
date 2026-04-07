@@ -19,6 +19,9 @@ interface SceneStore {
   updateObject: (id: string, patch: Partial<SceneObjectData>) => void;
   duplicateObject: (id: string) => string; // Дублирует объект, возвращает ID копии
 
+  // Загрузка сцены целиком (заменяет текущие объекты)
+  loadObjects: (objects: SceneObjectData[]) => void;
+
   // Выделение
   selectObject: (id: string) => void;
   deselectAll: () => void;
@@ -112,6 +115,13 @@ export const useSceneStore = create<SceneStore>()(
         });
         return newId;
       },
+
+      // Загрузить объекты из сохранённой сцены (заменяет текущее состояние)
+      loadObjects: (objects) =>
+        set(() => ({
+          objects,
+          selectedId: null,
+        })),
 
       // Выделить объект
       selectObject: (id) =>

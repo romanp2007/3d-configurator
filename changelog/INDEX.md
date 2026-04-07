@@ -22,6 +22,84 @@
 
 ---
 
+### [Этап 10: Скриншот и экспорт](2026-04-07-stage-10-screenshot-export.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Реализован скриншот сцены (preserveDrawingBuffer + toDataURL через useImperativeHandle внутри Canvas). Кнопки в Toolbar: 📷 скриншот PNG, ⬇ JSON экспорт, ⬆ JSON импорт через file input. При сохранении сцены thumbnail автоматически передаётся на сервер, в диалоге загрузки отображается превью.
+
+📄 **[Подробное описание →](2026-04-07-stage-10-screenshot-export.md)**
+
+**Основные файлы:**
+[useScreenshot.ts](../client/src/hooks/useScreenshot.ts), [SceneView.tsx](../client/src/components/canvas/SceneView.tsx), [sceneSerializer.ts](../client/src/utils/sceneSerializer.ts), [Toolbar.tsx](../client/src/components/ui/Toolbar.tsx)
+
+**Технологии:** WebGL preserveDrawingBuffer, canvas.toDataURL, useImperativeHandle, FileReader, Blob
+
+---
+
+### [Этап 9: Интеграция Frontend ↔ Backend](2026-04-07-stage-9-frontend-backend.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Реализована полная интеграция UI с REST API. Создан HTTP-клиент scenesApi.ts, сериализатор store↔SceneData, хук useSceneApi (loading/error, save/load/list/delete). SaveLoadDialog — модальный диалог с двумя режимами (сохранить/загрузить), inline-удаление с подтверждением. Кнопки в Toolbar и горячие клавиши Ctrl+S / Ctrl+O.
+
+📄 **[Подробное описание →](2026-04-07-stage-9-frontend-backend.md)**
+
+**Основные файлы:**
+[scenesApi.ts](../client/src/api/scenesApi.ts), [useSceneApi.ts](../client/src/hooks/useSceneApi.ts), [SaveLoadDialog.tsx](../client/src/components/ui/SaveLoadDialog.tsx), [sceneSerializer.ts](../client/src/utils/sceneSerializer.ts), [App.tsx](../client/src/App.tsx)
+
+**Технологии:** fetch API, React hooks, Zustand loadObjects, Vite proxy
+
+---
+
+### [Этап 8: Backend — CRUD API для сцен](2026-04-07-stage-8-backend-api.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Реализован полный REST API для управления сценами. Создан синглтон PrismaClient, централизованный errorHandler (ZodError→400, AppError→custom, P2025→404), Zod-схемы валидации (CreateScene/UpdateScene с вложенными Vec3/Material/SceneData), сервисный слой с CRUD-операциями и Express-роутер (GET list, GET by id, POST 201, PUT, DELETE 204). index.ts обновлён: подключены роутер и errorHandler, лимит JSON 10mb для base64 thumbnail.
+
+📄 **[Подробное описание →](2026-04-07-stage-8-backend-api.md)**
+
+**Основные файлы:**
+[prisma.ts](../server/src/lib/prisma.ts), [errorHandler.ts](../server/src/middleware/errorHandler.ts), [scene.schemas.ts](../server/src/schemas/scene.schemas.ts), [scene.service.ts](../server/src/services/scene.service.ts), [scenes.ts](../server/src/routes/scenes.ts), [index.ts](../server/src/index.ts)
+
+**Технологии:** Express 4, Prisma 5, Zod 3, PostgreSQL 16, TypeScript ESM
+
+---
+
+### [Этап 7: Undo / Redo](2026-04-07-stage-7-undo-redo.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+zundo temporal middleware подключён к useSceneStore — все мутации автоматически пишутся в историю (лимит 50). Создан useHistoryStore с canUndo/canRedo флагами. Кнопки Undo/Redo в Toolbar с disabled-состоянием. Горячие клавиши Ctrl+Z / Ctrl+Shift+Z.
+
+📄 **[Подробное описание →](2026-04-07-stage-7-undo-redo.md)**
+
+**Основные файлы:**
+[useSceneStore.ts](../client/src/store/useSceneStore.ts), [useHistoryStore.ts](../client/src/store/useHistoryStore.ts), [Toolbar.tsx](../client/src/components/ui/Toolbar.tsx), [useKeyboardShortcuts.ts](../client/src/hooks/useKeyboardShortcuts.ts)
+
+**Технологии:** zundo 2.3.0, Zustand temporal middleware, keyboard event listener
+
+---
+
+### [Этап 6: Scene Hierarchy](2026-04-07-stage-6-scene-hierarchy.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Создан SceneHierarchy — список объектов сцены в левом сайдбаре. Клик выделяет объект, двойной клик — инлайн-rename. Hover-действия: toggle видимости, дублировать, удалить. Иконки по типу объекта, счётчик, пустое состояние.
+
+📄 **[Подробное описание →](2026-04-07-stage-6-scene-hierarchy.md)**
+
+**Основные файлы:**
+[SceneHierarchy.tsx](../client/src/components/ui/SceneHierarchy.tsx)
+
+**Технологии:** Zustand useSceneStore, controlled input, conditional rendering
+
+---
+
+### [Этап 5: Панель свойств](2026-04-07-stage-5-properties-panel.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Создан PropertiesPanel с секциями TransformSection (Position/Rotation/Scale, шаг 0.1) и MaterialSection (color picker, metalness/roughness слайдеры). Редактируемое имя объекта, чекбокс visible. Двусторонняя синхронизация: гизмо → store → поля панели и обратно.
+
+📄 **[Подробное описание →](2026-04-07-stage-5-properties-panel.md)**
+
+**Основные файлы:**
+[PropertiesPanel.tsx](../client/src/components/ui/PropertiesPanel.tsx), [TransformSection.tsx](../client/src/components/ui/properties/TransformSection.tsx), [MaterialSection.tsx](../client/src/components/ui/properties/MaterialSection.tsx)
+
+**Технологии:** React controlled inputs, Zustand updateObject, двусторонняя синхронизация
+
+---
+
 ### [Этап 4: Transform Gizmo](2026-03-26-stage-4-transform-gizmo.md) (2026-03-26) - ✅ ЗАВЕРШЕНО
 
 Реализовано интерактивное гизмо для манипуляции объектами с тремя режимами трансформации (перемещение, вращение, масштабирование). Создан компонент TransformGizmo — обёртка над TransformControls из drei с синхронизацией в Zustand store. Добавлен Toolbar для переключения режимов и горячие клавиши W/E/R. Решены проблемы бесконечного цикла обновлений и двойной трансформации. OrbitControls автоматически отключается во время взаимодействия с гизмо.

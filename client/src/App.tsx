@@ -3,6 +3,7 @@
  * Layout: Sidebar (250px) + Canvas (flex) + Properties Panel (300px)
  */
 
+import { useState, useCallback } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { SceneView } from './components/canvas/SceneView';
@@ -11,15 +12,43 @@ import { SceneHierarchy } from './components/ui/SceneHierarchy';
 import { CanvasDropTarget } from './components/ui/CanvasDropTarget';
 import { Toolbar } from './components/ui/Toolbar';
 import { PropertiesPanel } from './components/ui/PropertiesPanel';
+import { SaveLoadDialog } from './components/ui/SaveLoadDialog';
 import { useEditorStore } from './store/useEditorStore';
+import { useSceneStore } from './store/useSceneStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useScreenshot } from './hooks/useScreenshot';
+import { exportSceneToJson, importSceneFromJson } from './utils/sceneSerializer';
+
+type DialogMode = 'save' | 'load' | null;
 
 function App() {
   const toggleGrid = useEditorStore((state) => state.toggleGrid);
   const showGrid = useEditorStore((state) => state.showGrid);
+  const objects = useSceneStore((state) => state.objects);
+  const loadObjects = useSceneStore((state) => state.loadObjects);
+
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+
+  const { screenshotRef, takeScreenshot, getThumbnail } = useScreenshot();
+
+  const openSave = useCallback(() => setDialogMode('save'), []);
+  const openLoad = useCallback(() => setDialogMode('load'), []);
+  const closeDialog = useCallback(() => setDialogMode(null), []);
+
+  const handleExportJson = useCallback(() => {
+    exportSceneToJson(objects);
+  }, [objects]);
+
+  const handleImportJson = useCallback(
+    async (file: File) => {
+      const imported = await importSceneFromJson(file);
+      if (imported) loadObjects(imported);
+    },
+    [loadObjects],
+  );
 
   // Подключаем горячие клавиши
-  useKeyboardShortcuts();
+  useKeyboardShortcuts({ onSave: openSave, onLoad: openLoad });
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -28,7 +57,7 @@ function App() {
         <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <h1 className="text-xl font-bold text-white">3D Scene Editor</h1>
-            <p className="text-xs text-gray-400 mt-1">Этап 7: Undo/Redo</p>
+            <p className="text-xs text-gray-400 mt-1">Этап 10: Скриншот и экспорт</p>
           </div>
           <div className="flex-1 overflow-y-auto">
             {/* Каталог объектов с drag & drop */}
@@ -53,12 +82,27 @@ function App() {
 
         {/* Центральная часть - 3D Canvas */}
         <CanvasDropTarget>
-          <Toolbar />
-          <SceneView />
+          <Toolbar
+            onSave={openSave}
+            onLoad={openLoad}
+            onScreenshot={takeScreenshot}
+            onExportJson={handleExportJson}
+            onImportJson={handleImportJson}
+          />
+          <SceneView screenshotRef={screenshotRef} />
         </CanvasDropTarget>
 
         {/* Правая панель - Properties */}
         <PropertiesPanel />
+
+        {/* Диалог сохранения / загрузки */}
+        {dialogMode && (
+          <SaveLoadDialog
+            mode={dialogMode}
+            onClose={closeDialog}
+            getThumbnail={getThumbnail}
+          />
+        )}
       </div>
     </DndProvider>
   );
