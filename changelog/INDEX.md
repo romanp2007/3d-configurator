@@ -22,6 +22,19 @@
 
 ---
 
+### [Этап 11: Загрузка ассетов](2026-04-07-stage-11-assets.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
+
+Реализована загрузка текстур (PNG/JPG) и 3D-моделей (GLB/GLTF). Backend: Multer роут POST /api/assets/upload (50MB лимит, валидация типов, защита от path traversal), GET для отдачи файлов и списка. Frontend: useTexture + Suspense для текстур, useGLTF + clone для GLB-моделей. Кнопка загрузки текстуры в MaterialSection, секция «3D Модели» в ObjectCatalog с кнопкой «+ GLB».
+
+📄 **[Подробное описание →](2026-04-07-stage-11-assets.md)**
+
+**Основные файлы:**
+[assets.ts](../server/src/routes/assets.ts), [assetsApi.ts](../client/src/api/assetsApi.ts), [MaterialSection.tsx](../client/src/components/ui/properties/MaterialSection.tsx), [SceneObject.tsx](../client/src/components/canvas/SceneObject.tsx), [ObjectCatalog.tsx](../client/src/components/ui/ObjectCatalog.tsx)
+
+**Технологии:** Multer, useTexture, useGLTF, THREE.RepeatWrapping, React Suspense
+
+---
+
 ### [Этап 10: Скриншот и экспорт](2026-04-07-stage-10-screenshot-export.md) (2026-04-07) - ✅ ЗАВЕРШЕНО
 
 Реализован скриншот сцены (preserveDrawingBuffer + toDataURL через useImperativeHandle внутри Canvas). Кнопки в Toolbar: 📷 скриншот PNG, ⬇ JSON экспорт, ⬆ JSON импорт через file input. При сохранении сцены thumbnail автоматически передаётся на сервер, в диалоге загрузки отображается превью.

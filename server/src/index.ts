@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import scenesRouter from './routes/scenes.js';
+import assetsRouter from './routes/assets.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // Загрузка переменных окружения
@@ -31,6 +32,7 @@ app.get('/api/health', (_req, res) => {
 
 // Маршруты
 app.use('/api/scenes', scenesRouter);
+app.use('/api/assets', assetsRouter);
 
 // Обработка несуществующих маршрутов
 app.use('*', (req, res) => {
@@ -48,4 +50,5 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🗄️  Scenes API: http://localhost:${PORT}/api/scenes`);
+  console.log(`📁 Assets API: http://localhost:${PORT}/api/assets`);
 });
