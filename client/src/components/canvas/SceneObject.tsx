@@ -4,11 +4,12 @@
  * Поддерживает выделение, визуальную подсветку и текстуры
  */
 
-import { useMemo, Suspense } from 'react';
+import { useMemo, useEffect, Suspense } from 'react';
 import { useTexture, useGLTF } from '@react-three/drei';
 import type { SceneObjectData } from '@shared/types/scene';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
+import { registerPhysicsGeometry, unregisterPhysicsGeometry } from '@/physics/physicsGeometryRegistry';
 
 interface SceneObjectProps {
   data: SceneObjectData;
@@ -25,9 +26,10 @@ interface MaterialProps {
   textureUrl?: string;
   emissive: string;
   emissiveIntensity: number;
+  side?: THREE.Side;
 }
 
-function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, emissiveIntensity }: MaterialProps) {
+function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, emissiveIntensity, side }: MaterialProps) {
   const texture = useTexture(textureUrl!);
 
   // Настройка повтора текстуры
@@ -41,6 +43,7 @@ function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, e
       map={texture}
       emissive={emissive}
       emissiveIntensity={emissiveIntensity}
+      side={side}
     />
   );
 }
@@ -52,6 +55,7 @@ function ObjectMaterial(props: MaterialProps) {
     roughness: props.roughness,
     emissive: props.emissive,
     emissiveIntensity: props.emissiveIntensity,
+    side: props.side,
   };
 
   if (props.textureUrl) {
@@ -93,6 +97,53 @@ function GltfModel({ url, meshProps, materialProps }: GltfModelProps) {
   }, [scene, materialProps.emissive, materialProps.emissiveIntensity]);
 
   return <primitive object={cloned} {...meshProps} />;
+}
+
+// --- physicsMesh (импортированная деталь newton/user_geometry) ---
+
+interface PhysicsMeshObjectProps {
+  id: string;
+  positions: Float32Array;
+  indices: Uint32Array;
+  meshProps: object;
+  materialProps: Omit<MaterialProps, 'textureUrl'>;
+}
+
+/**
+ * Рендер импортированной физ-детали. Геометрия — ЛОКАЛЬНОЕ (rest) пространство
+ * (positions/indices из vertices.bin/indices.bin, Z-up→Y-up уже применён при
+ * импорте, см. physicsSceneApi.ts) — мировой transform накладывается через
+ * обычные position/rotation/scale в meshProps, как для type === 'model'.
+ * Тот же BufferGeometry служит vertex-морфером во время симуляции
+ * (PhysicsSimController перезаписывает position-атрибут через
+ * ExtractPhysicsPositionsKernel), см. wiki/plans/3d_configurator_integration.md,
+ * Этап 3/7.
+ */
+function PhysicsMeshObject({ id, positions, indices, meshProps, materialProps }: PhysicsMeshObjectProps) {
+  const geometry = useMemo(() => {
+    const geom = new THREE.BufferGeometry();
+    // slice() — симуляция мутирует position.array в живом БУФЕРЕ; исходный
+    // Float32Array в physicsMesh.positions должен остаться нетронутым (Reset).
+    const positionAttr = new THREE.BufferAttribute(positions.slice(), 3);
+    // DynamicDrawUsage — атрибут обновляется каждый физический кадр в
+    // sim-режиме (PhysicsSimController), не только на создании.
+    positionAttr.setUsage(THREE.DynamicDrawUsage);
+    geom.setAttribute('position', positionAttr);
+    geom.setIndex(new THREE.BufferAttribute(indices, 1));
+    geom.computeVertexNormals();
+    return geom;
+  }, [positions, indices]);
+
+  useEffect(() => {
+    registerPhysicsGeometry(id, geometry);
+    return () => unregisterPhysicsGeometry(id, geometry);
+  }, [id, geometry]);
+
+  return (
+    <mesh {...meshProps} geometry={geometry}>
+      <ObjectMaterial {...materialProps} side={THREE.DoubleSide} />
+    </mesh>
+  );
 }
 
 // --- Основной компонент ---
@@ -142,6 +193,19 @@ export function SceneObject({ data, isSelected, onClick }: SceneObjectProps) {
       }>
         <GltfModel url={modelUrl} meshProps={meshProps} materialProps={materialProps} />
       </Suspense>
+    );
+  }
+
+  if (type === 'physicsMesh') {
+    if (!data.physicsMesh) return null; // защитно — не должно случаться (см. usePhysicsSceneApi)
+    return (
+      <PhysicsMeshObject
+        id={data.id}
+        positions={data.physicsMesh.positions}
+        indices={data.physicsMesh.indices}
+        meshProps={meshProps}
+        materialProps={materialProps}
+      />
     );
   }
 

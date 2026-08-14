@@ -4,17 +4,31 @@
  * Рендерит объекты из Zustand store
  */
 
-import { useState, forwardRef, useImperativeHandle, useRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { useState, forwardRef, useImperativeHandle } from 'react';
+import { Canvas, extend, useThree } from '@react-three/fiber';
+import type { ThreeToJSXElements } from '@react-three/fiber';
+import * as THREE from 'three/webgpu';
 import { Grid } from './Grid';
 import { Lights } from './Lights';
 import { CameraControls } from './CameraControls';
 import { SceneObject } from './SceneObject';
 import { TransformGizmo } from './TransformGizmo';
+import { PhysicsSimController } from './PhysicsSimController';
+import { PhysicsDebugOverlay } from './PhysicsDebugOverlay';
 import { CanvasDropZone } from '../ui/CanvasDropTarget';
 import { useSceneStore } from '@/store/useSceneStore';
 import { useEditorStore } from '@/store/useEditorStore';
 import type { ScreenshotHandle } from '@/hooks/useScreenshot';
+
+// Регистрируем JSX-интринзики из three/webgpu (WebGPURenderer + совместимые
+// классы three, включая узловые материалы) вместо дефолтного каталога R3F
+// (который тянет 'three', а не 'three/webgpu'). Без этого <mesh>/<boxGeometry>
+// и т.д. не резолвятся при рендере через WebGPURenderer. См.
+// wiki/plans/3d_configurator_integration.md, Этап 0.
+declare module '@react-three/fiber' {
+  interface ThreeElements extends ThreeToJSXElements<typeof THREE> {}
+}
+extend(THREE as unknown as Record<string, new (...args: unknown[]) => unknown>);
 
 /**
  * Внутренний компонент — живёт внутри <Canvas>, имеет доступ к useThree
@@ -45,6 +59,7 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
     const selectedId = useSceneStore((state) => state.selectedId);
     const selectObject = useSceneStore((state) => state.selectObject);
     const showGrid = useEditorStore((state) => state.showGrid);
+    const simMode = useEditorStore((state) => state.simMode);
     const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
 
     return (
@@ -54,10 +69,20 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
           position: [5, 5, 5],
           fov: 50,
         }}
-        gl={{
-          antialias: true,
-          alpha: false,
-          preserveDrawingBuffer: true, // Необходимо для toDataURL()
+        gl={async (props) => {
+          // Async-конструктор обязателен для WebGPURenderer (R3F v9, см.
+          // v9-migration-guide). WebGPURendererParameters НЕ знает
+          // preserveDrawingBuffer (WebGL-специфичная опция) — useScreenshot.ts
+          // (gl.domElement.toDataURL()) требует отдельной проверки/переделки
+          // под WebGPU, см. открытый риск в
+          // wiki/plans/3d_configurator_integration.md, Этап 0.
+          const renderer = new THREE.WebGPURenderer({
+            ...(props as ConstructorParameters<typeof THREE.WebGPURenderer>[0]),
+            antialias: true,
+            alpha: false,
+          });
+          await renderer.init();
+          return renderer;
         }}
         style={{ background: '#1a1a1a' }}
       >
@@ -76,22 +101,38 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
         {/* Drop zone для drag & drop */}
         <CanvasDropZone />
 
-        {/* Transform Gizmo */}
-        <TransformGizmo
-          onDragStart={() => setIsDraggingGizmo(true)}
-          onDragEnd={() => setIsDraggingGizmo(false)}
-        />
+        {/* Physics-симуляция (Style3DSolverScene) — активна только при
+            simMode === 'simulate', см. Этап 7 плана. Ничего не рендерит сама,
+            пишет позиции напрямую в геометрию physicsMesh-объектов. */}
+        <PhysicsSimController />
+
+        {/* Просмотр швов/закреплённых точек (Этап 4b) — переключатели в PhysicsSection */}
+        <PhysicsDebugOverlay />
+
+        {/* Transform Gizmo — скрыт во время симуляции (нечего двигать, солвер
+            сам ведёт позиции) */}
+        {simMode === 'edit' && (
+          <TransformGizmo
+            onDragStart={() => setIsDraggingGizmo(true)}
+            onDragEnd={() => setIsDraggingGizmo(false)}
+          />
+        )}
 
         {/* Объекты сцены из store */}
         {objects.map((obj) => {
-          // Не рендерим выбранный объект - он рендерится в TransformGizmo
-          if (obj.id === selectedId) return null;
+          // В edit-режиме выбранный объект не рендерим здесь — он рендерится
+          // в TransformGizmo (с гизмо). В simulate-режиме гизмо не участвует
+          // (см. выше) — рендерим ВСЕ объекты здесь как обычно, включая
+          // выбранный, иначе он останется невидимым и вдобавок пересоздание
+          // геометрии между TransformGizmo/обычным рендером сбросило бы
+          // накопленную vertex-морф деформацию.
+          if (obj.id === selectedId && simMode === 'edit') return null;
 
           return (
             <SceneObject
               key={obj.id}
               data={obj}
-              isSelected={false}
+              isSelected={obj.id === selectedId}
               onClick={(e) => {
                 e.stopPropagation();
                 selectObject(obj.id);

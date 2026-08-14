@@ -8,6 +8,7 @@
 import { useSceneStore } from '@/store/useSceneStore';
 import { TransformSection } from './properties/TransformSection';
 import { MaterialSection } from './properties/MaterialSection';
+import { PhysicsSection } from './properties/PhysicsSection';
 
 interface PropertiesPanelProps {
   /** Без внешней <aside>-обёртки — для bottom sheet на мобильных */
@@ -55,6 +56,9 @@ function PanelContent() {
       </label>
 
       <TransformSection object={selectedObject} onUpdate={updateObject} />
+      {selectedObject.type === 'physicsMesh' && (
+        <PhysicsSection object={selectedObject} onUpdate={updateObject} />
+      )}
       <MaterialSection object={selectedObject} onUpdate={updateObject} />
     </div>
   );

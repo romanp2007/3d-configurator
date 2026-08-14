@@ -36,7 +36,8 @@ function DraggableItem({ item }: { item: CatalogItem }) {
 
   return (
     <div
-      ref={drag}
+      // См. CanvasDropTarget.tsx — React 19 vs react-dnd callback-ref типы.
+      ref={(node) => { drag(node); }}
       className={`p-3 bg-gray-700 hover:bg-gray-600 rounded-lg cursor-move text-center transition-all ${
         isDragging ? 'opacity-50 scale-95' : 'opacity-100'
       }`}

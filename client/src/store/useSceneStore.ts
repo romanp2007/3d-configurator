@@ -39,6 +39,10 @@ function createDefaultObject(type: ObjectType): SceneObjectData {
     plane: 'Плоскость',
     torus: 'Тор',
     model: 'Модель',
+    // physicsMesh не создаётся через каталог (нет "с нуля" — только импорт
+    // сцены, см. usePhysicsSceneApi.importPhysicsScene → loadObjects()),
+    // запись нужна только для exhaustive-типизации этой Record.
+    physicsMesh: 'Физ-объект',
   };
 
   return {

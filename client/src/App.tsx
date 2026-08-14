@@ -17,6 +17,7 @@ import { Toolbar } from './components/ui/Toolbar';
 import { MobileToolbar } from './components/ui/MobileToolbar';
 import { PropertiesPanel } from './components/ui/PropertiesPanel';
 import { SaveLoadDialog } from './components/ui/SaveLoadDialog';
+import { PhysicsSceneDialog } from './components/ui/PhysicsSceneDialog';
 import { HotkeyDialog } from './components/ui/HotkeyDialog';
 import { useEditorStore } from './store/useEditorStore';
 import { useSceneStore } from './store/useSceneStore';
@@ -42,6 +43,7 @@ function App() {
   const isTablet = bp === 'tablet';
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+  const [physicsDialogOpen, setPhysicsDialogOpen] = useState(false);
   const [hotkeyOpen, setHotkeyOpen] = useState(false);
   // Tablet: открыт/закрыт сайдбар и панель свойств
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -69,6 +71,9 @@ function App() {
     },
     [loadObjects],
   );
+
+  const openPhysicsDialog = useCallback(() => setPhysicsDialogOpen(true), []);
+  const closePhysicsDialog = useCallback(() => setPhysicsDialogOpen(false), []);
 
   // Mobile: toggle bottom sheets
   const toggleCatalog = useCallback(() => {
@@ -145,6 +150,7 @@ function App() {
         {dialogMode && (
           <SaveLoadDialog mode={dialogMode} onClose={closeDialog} getThumbnail={getThumbnail} />
         )}
+        {physicsDialogOpen && <PhysicsSceneDialog onClose={closePhysicsDialog} />}
         {hotkeyOpen && <HotkeyDialog onClose={closeHotkeys} />}
         <ToastContainer />
       </DndProvider>
@@ -198,6 +204,7 @@ function App() {
                 onScreenshot={takeScreenshot}
                 onExportJson={handleExportJson}
                 onImportJson={handleImportJson}
+                onImportPhysicsScene={openPhysicsDialog}
                 onHotkeys={openHotkeys}
               />
               <SceneErrorBoundary>
@@ -240,6 +247,7 @@ function App() {
         {dialogMode && (
           <SaveLoadDialog mode={dialogMode} onClose={closeDialog} getThumbnail={getThumbnail} />
         )}
+        {physicsDialogOpen && <PhysicsSceneDialog onClose={closePhysicsDialog} />}
         {hotkeyOpen && <HotkeyDialog onClose={closeHotkeys} />}
         <ToastContainer />
       </DndProvider>
@@ -267,6 +275,7 @@ function App() {
             onScreenshot={takeScreenshot}
             onExportJson={handleExportJson}
             onImportJson={handleImportJson}
+            onImportPhysicsScene={openPhysicsDialog}
             onHotkeys={openHotkeys}
           />
           <SceneErrorBoundary>
@@ -280,6 +289,7 @@ function App() {
         {dialogMode && (
           <SaveLoadDialog mode={dialogMode} onClose={closeDialog} getThumbnail={getThumbnail} />
         )}
+        {physicsDialogOpen && <PhysicsSceneDialog onClose={closePhysicsDialog} />}
         <ToastContainer />
       </div>
     </DndProvider>

@@ -16,6 +16,7 @@ const objectIcons: Record<ObjectType, string> = {
   plane: '▬',
   torus: '◯',
   model: '▣',
+  physicsMesh: '👕',
 };
 
 export function SceneHierarchy() {

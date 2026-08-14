@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -16,16 +16,24 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    // noUnusedLocals/noUnusedParameters НЕ включены: с Этапа 6/7 плана
+    // 3d_configurator_integration.md client/src транзитивно импортирует
+    // большие куски wgpu_utils/src (@wgpu/*) — соседний проект со своим,
+    // более мягким tsconfig (без этих флагов). Держать их включёнными
+    // означало бы либо чистить чужой dead code по ходу дела, либо блокировать
+    // сборку клиента им. Для СОБСТВЕННОГО кода 3d-configurator неиспользуемые
+    // переменные по-прежнему ловит ESLint (см. ../.eslintrc.cjs), который
+    // не сканирует файлы за пределами этого workspace.
 
-    /* Path aliases */
-    "baseUrl": ".",
+    /* Path aliases — TS 6.0 deprecated baseUrl (TS5101); paths resolve
+       relative to this file's directory without it. */
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
-    }
+      "@shared/*": ["../shared/*"],
+      "@wgpu/*": ["../../src/*"]
+    },
+    "types": ["@webgpu/types"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

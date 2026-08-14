@@ -50,7 +50,10 @@ export function CanvasDropTarget({ children }: CanvasDropTargetProps) {
 
   return (
     <div
-      ref={drop}
+      // React 19 ужесточил тип возврата callback-ref (только void/cleanup-функция),
+      // а react-dnd's ConnectDropTarget типизирован под старый (более широкий)
+      // контракт — оборачиваем, чтобы отбросить возвращаемое значение.
+      ref={(node) => { drop(node); }}
       className={`flex-1 relative transition-colors ${isOver ? 'bg-blue-900/20' : ''}`}
     >
       {children}

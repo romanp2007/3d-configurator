@@ -75,7 +75,7 @@ export function MobileToolbar({
 
         {/* Undo */}
         <button
-          onClick={undo}
+          onClick={() => undo()}
           disabled={!canUndo}
           className="flex-1 py-3 flex flex-col items-center gap-0.5 disabled:text-gray-700 text-gray-400 hover:text-white transition-colors"
         >
@@ -85,7 +85,7 @@ export function MobileToolbar({
 
         {/* Redo */}
         <button
-          onClick={redo}
+          onClick={() => redo()}
           disabled={!canRedo}
           className="flex-1 py-3 flex flex-col items-center gap-0.5 disabled:text-gray-700 text-gray-400 hover:text-white transition-colors"
         >
