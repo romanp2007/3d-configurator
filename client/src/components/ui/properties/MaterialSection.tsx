@@ -102,6 +102,17 @@ export function MaterialSection({ object, onUpdate }: MaterialSectionProps) {
         />
       </div>
 
+      {/* Wireframe */}
+      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer mb-4">
+        <input
+          type="checkbox"
+          checked={object.material.wireframe ?? false}
+          onChange={(e) => handleMaterialChange({ wireframe: e.target.checked })}
+          className="w-4 h-4 rounded border-gray-600 bg-gray-700 focus:ring-blue-500"
+        />
+        <span>Wireframe</span>
+      </label>
+
       {/* Текстура */}
       <div>
         <label className="block text-gray-400 text-xs mb-2">Текстура</label>

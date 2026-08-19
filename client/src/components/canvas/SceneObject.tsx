@@ -27,9 +27,10 @@ interface MaterialProps {
   emissive: string;
   emissiveIntensity: number;
   side?: THREE.Side;
+  wireframe?: boolean;
 }
 
-function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, emissiveIntensity, side }: MaterialProps) {
+function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, emissiveIntensity, side, wireframe }: MaterialProps) {
   const texture = useTexture(textureUrl!);
 
   // Настройка повтора текстуры
@@ -44,6 +45,7 @@ function TexturedMaterial({ color, metalness, roughness, textureUrl, emissive, e
       emissive={emissive}
       emissiveIntensity={emissiveIntensity}
       side={side}
+      wireframe={wireframe}
     />
   );
 }
@@ -56,6 +58,7 @@ function ObjectMaterial(props: MaterialProps) {
     emissive: props.emissive,
     emissiveIntensity: props.emissiveIntensity,
     side: props.side,
+    wireframe: props.wireframe,
   };
 
   if (props.textureUrl) {
@@ -83,18 +86,19 @@ function GltfModel({ url, meshProps, materialProps }: GltfModelProps) {
   // Клонируем сцену чтобы не мутировать кэш useGLTF
   const cloned = useMemo(() => {
     const clone = scene.clone();
-    // Применяем выделение через emissive на все меши модели
+    // Применяем выделение через emissive и wireframe на все меши модели
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
         mat.emissive = new THREE.Color(materialProps.emissive);
         mat.emissiveIntensity = materialProps.emissiveIntensity;
+        mat.wireframe = materialProps.wireframe ?? false;
         mesh.material = mat;
       }
     });
     return clone;
-  }, [scene, materialProps.emissive, materialProps.emissiveIntensity]);
+  }, [scene, materialProps.emissive, materialProps.emissiveIntensity, materialProps.wireframe]);
 
   return <primitive object={cloned} {...meshProps} />;
 }
@@ -172,6 +176,7 @@ export function SceneObject({ data, isSelected, onClick }: SceneObjectProps) {
     textureUrl: material.textureUrl,
     emissive,
     emissiveIntensity,
+    wireframe: material.wireframe,
   };
 
   if (type === 'model') {

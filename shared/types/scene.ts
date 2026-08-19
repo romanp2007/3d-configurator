@@ -19,6 +19,8 @@ export interface MaterialData {
   metalness: number;
   roughness: number;
   textureUrl?: string;
+  /** Режим рендера "каркас" (THREE.Material.wireframe). Не задано = false. */
+  wireframe?: boolean;
 }
 
 /**
