@@ -29,6 +29,8 @@ export default defineConfig({
       // wgpu_utils/src напрямую (не npm-пакет — оба репозитория живут рядом
       // на диске). См. wiki/plans/3d_configurator_integration.md, Этап 8.
       '@wgpu': path.resolve(__dirname, '../../src'),
+      // Пресеты материалов (KES-F) — client/src/data/materialPresets.ts.
+      '@kesf-fitting': path.resolve(__dirname, '../../kesf_fitting'),
     },
   },
   server: {

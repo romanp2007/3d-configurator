@@ -31,7 +31,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/*"],
-      "@wgpu/*": ["../../src/*"]
+      "@wgpu/*": ["../../src/*"],
+      "@kesf-fitting/*": ["../../kesf_fitting/*"]
     },
     "types": ["@webgpu/types"]
   },

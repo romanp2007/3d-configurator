@@ -25,13 +25,14 @@
  */
 
 import { useRef, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
 import { mat4 as glMat4 } from 'gl-matrix';
 
 import { useEditorStore } from '@/store/useEditorStore';
 import { useSceneStore } from '@/store/useSceneStore';
 import { usePhysicsDebugStore } from '@/store/usePhysicsDebugStore';
+import { usePhysicsEngineSettingsStore } from '@/store/usePhysicsEngineSettingsStore';
 import { toast } from '@/store/useToastStore';
 import { getPhysicsGeometry } from '@/physics/physicsGeometryRegistry';
 import { buildSceneSimInputFromEditor } from '@/physics/buildSceneSimInputFromEditor';
@@ -41,15 +42,11 @@ import { buildSolverSceneData } from '@wgpu/physics/solver/scene_to_solver';
 import { Style3DSolverScene } from '@wgpu/physics/solver/style3d_scene';
 import { buildSeamTopologyFromSceneData } from '@wgpu/physics/seam/build_seam_topology';
 import { ExtractPhysicsPositionsKernel } from '@wgpu/render/update_render_bufs';
+import { DragTool, type DragToolRendererLike } from '@wgpu/physics/pick/drag_tool';
 import type { SceneObjectData } from '@shared/types/scene';
 
-// Значения по умолчанию из tests/seaming_scene_test_entry.ts (реальная сцена
-// scene1copy1) — см. wiki/plans/seaming.md, §«Жёсткость/притяжение прошло
-// ЧЕТЫРЕ версии»: force-based пружина L0=0 безопасна ТОЛЬКО в связке с
-// упрощённым seam-time солвером (stepWithSeaming/SolveDiagonalKernel), не с
-// обычным step()/PCG.
-const SEAM_STIFFNESS = 1e4;
-const SEAM_MERGE_DISTANCE = 0.03; // м
+/** Хоткей переключения drag-инструмента (перетаскивание ткани мышью во время симуляции). */
+const DRAG_TOOL_KEY = 'Space';
 
 interface ClothExtractor {
   objectId: string;
@@ -80,14 +77,29 @@ interface ActiveSim {
    * seaming.md.
    */
   hasSeams: boolean;
+  /** Снимок PhysicsEngineSettings.dt на момент старта (см. startSimulation). */
+  dt: number;
+  /**
+   * Один общий staging-буфер (COPY_DST | MAP_READ) под результаты ВСЕХ
+   * extractors — вместо readData() на каждый кернел по отдельности (было
+   * 2×N точек CPU↔GPU синхронизации за кадр: submit+onSubmittedWorkDone на
+   * дисптач и ещё submit+mapAsync внутри readData() на каждый cloth-объект).
+   * Раскладка — конкатенация per-объектных vertexCount*3*4 байт в порядке
+   * sim.extractors (см. startSimulation). См. wiki/plans/
+   * physics_sim_fps_optimization.md, Этапы 0/A1.
+   */
+  readbackBuf: GPUBuffer;
 }
-
-const SIM_DT = 1 / 60;
 
 async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
   if (!navigator.gpu) {
     throw new Error('WebGPU недоступен в этом браузере (navigator.gpu отсутствует)');
   }
+
+  // Снимок настроек на момент старта — правки в PhysicsEngineSettingsDialog
+  // во время активной симуляции не долетают до уже созданного солвера, см.
+  // usePhysicsEngineSettingsStore.ts.
+  const engineSettings = usePhysicsEngineSettingsStore.getState().settings;
 
   const input = buildSceneSimInputFromEditor(objects);
   if (input.clothCount === 0) {
@@ -119,12 +131,26 @@ async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
     ctx,
     data,
     {
-      numNewtonIters: 1,
-      numPcgIters: 10,
-      numSubsteps: 10,
+      numNewtonIters: engineSettings.numNewtonIters,
+      numPcgIters: engineSettings.numPcgIters,
+      numSubsteps: engineSettings.numSubsteps,
+      adjustFactor: engineSettings.adjustFactor,
+      contactFixedStiffness: engineSettings.contactFixedStiffness,
+      contactFixedStiffnessEe: engineSettings.contactFixedStiffnessEe,
+      contactDamping: engineSettings.contactDamping,
+      contactDampingEe: engineSettings.contactDampingEe,
+      contactStiffFactor: engineSettings.contactStiffFactor,
+      contactStiffFactorEe: engineSettings.contactStiffFactorEe,
+      contactHessReg: engineSettings.contactHessReg,
+      contactHessRegEe: engineSettings.contactHessRegEe,
+      stretchDamping: engineSettings.stretchDamping,
+      bendDamping: engineSettings.bendDamping,
+      // 1 слот перетаскивания — см. DragTool в PhysicsSimController() ниже
+      // (активируется удержанием DRAG_TOOL_KEY). 0 = кернел drag отключён.
+      maxDragPoints: 1,
       ...(seamTopology && {
-        seamStiffness: SEAM_STIFFNESS,
-        seamMergeDistance: SEAM_MERGE_DISTANCE,
+        seamStiffness: engineSettings.seamStiffness,
+        seamMergeDistance: engineSettings.seamMergeDistance,
         // Обязателен для seam-сцен: без него runtime-пересборка PD-матрицы
         // после слияния стежков не выполняется, см. wiki/plans/seaming.md,
         // «Открытые вопросы», п.3.
@@ -152,7 +178,15 @@ async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
     return { objectId: sceneObj.id, kernel };
   });
 
-  return { ctx, scene, extractors, framePromise: null, hasSeams: !!seamTopology };
+  // Один общий readback-буфер под все extractors разом — см. ActiveSim.readbackBuf.
+  const totalReadbackBytes = extractors.reduce((sum, { kernel }) => sum + kernel.vertexCount * 3 * 4, 0);
+  const readbackBuf = ctx.device.createBuffer({
+    label: 'extract_readback_combined',
+    size: totalReadbackBytes,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  });
+
+  return { ctx, scene, extractors, framePromise: null, hasSeams: !!seamTopology, dt: engineSettings.dt, readbackBuf };
 }
 
 async function runFrame(sim: ActiveSim): Promise<void> {
@@ -160,24 +194,58 @@ async function runFrame(sim: ActiveSim): Promise<void> {
     // Конечный автомат: seam-time (упрощённый солвер) → stiffness ramp-up →
     // обычный FEM+PCG. Переключение внутри Style3DSolverScene, см. её
     // stepWithSeaming() и комментарий у ActiveSim.hasSeams выше.
-    await sim.scene.stepWithSeaming(SIM_DT);
+    await sim.scene.stepWithSeaming(sim.dt);
   } else {
-    await sim.scene.step(SIM_DT);
+    await sim.scene.step(sim.dt);
   }
 
-  for (const { objectId, kernel } of sim.extractors) {
-    const encoder = kernel.runPass();
-    sim.ctx.device.queue.submit([encoder.finish()]);
-    await sim.ctx.device.queue.onSubmittedWorkDone();
-    const raw = await kernel.dstBuf.readData(sim.ctx);
+  if (sim.extractors.length === 0) return;
 
-    const geom = getPhysicsGeometry(objectId);
-    if (!geom) continue;
-    const attr = geom.attributes.position as THREE.BufferAttribute;
-    (attr.array as Float32Array).set(new Float32Array(raw));
-    attr.needsUpdate = true;
-    // computeVertexNormals() каждый кадр — заметная CPU-нагрузка на плотных
-    // мешах; для MVP пропускаем (нормали остаются из rest-позы). См. Этап 7.
+  // Батчинг extractors (см. wiki/plans/physics_sim_fps_optimization.md,
+  // Этапы 0/A1): по одному command buffer на дисптач извлечения каждого
+  // cloth-объекта + ОДИН дополнительный command buffer, копирующий все
+  // per-объектные dstBuf в единый sim.readbackBuf. Все command buffers
+  // одной очереди устройства исполняются строго в порядке массива
+  // (гарантия WebGPU), поэтому copy-буфер, идущий последним, гарантированно
+  // видит уже готовые результаты всех дисптачей — явный
+  // await onSubmittedWorkDone() между ними не нужен.
+  const commandBuffers: GPUCommandBuffer[] = sim.extractors.map(({ kernel }) => kernel.runPass().finish());
+
+  const copyEncoder = sim.ctx.device.createCommandEncoder({ label: 'extract_readback_copy' });
+  let byteOffset = 0;
+  for (const { kernel } of sim.extractors) {
+    const byteLength = kernel.vertexCount * 3 * 4;
+    copyEncoder.copyBufferToBuffer(kernel.dstBuf.buffer, 0, sim.readbackBuf, byteOffset, byteLength);
+    byteOffset += byteLength;
+  }
+  commandBuffers.push(copyEncoder.finish());
+
+  // ОДИН submit на весь кадр (было N) + ОДИН mapAsync (было N) — единственная
+  // точка CPU↔GPU синхронизации за кадр вместо 2×N.
+  sim.ctx.device.queue.submit(commandBuffers);
+  await sim.readbackBuf.mapAsync(GPUMapMode.READ);
+  try {
+    const mapped = sim.readbackBuf.getMappedRange();
+    byteOffset = 0;
+    for (const { objectId, kernel } of sim.extractors) {
+      const floatCount = kernel.vertexCount * 3;
+      const geom = getPhysicsGeometry(objectId);
+      if (geom) {
+        const attr = geom.attributes.position as THREE.BufferAttribute;
+        // View поверх mapped напрямую (без промежуточного clone) — валидна
+        // только до unmap() ниже, .set() копирует данные в attr.array сразу.
+        (attr.array as Float32Array).set(new Float32Array(mapped, byteOffset, floatCount));
+        attr.needsUpdate = true;
+        geom.computeVertexNormals()
+        // computeVertexNormals() каждый кадр — заметная CPU-нагрузка на плотных
+        // мешах; для MVP пропускаем (нормали остаются из rest-позы). См. Этап 7.
+      }
+      byteOffset += floatCount * 4;
+    }
+  } finally {
+    // Гарантируем unmap даже при ошибке разбора — иначе буфер навсегда
+    // застревает "mapped", и следующий кадр падает на повторном mapAsync().
+    sim.readbackBuf.unmap();
   }
 }
 
@@ -187,6 +255,7 @@ function destroySimulation(sim: ActiveSim): void {
     kernel.dstBuf.destroy();
     kernel.paramsBuf.destroy();
   }
+  sim.readbackBuf.destroy();
   sim.ctx.device.destroy();
 }
 
@@ -203,11 +272,84 @@ function resetGeometries(objects: SceneObjectData[]): void {
   }
 }
 
-export function PhysicsSimController() {
+interface PhysicsSimControllerProps {
+  /** Вызывается при активации/деактивации drag-инструмента (см. DragTool ниже) —
+   * используется SceneView для отключения OrbitControls, пока активен режим drag. */
+  onDragToolActiveChange?: (active: boolean) => void;
+}
+
+export function PhysicsSimController({ onDragToolActiveChange }: PhysicsSimControllerProps = {}) {
   const simMode = useEditorStore((s) => s.simMode);
   const stopSimulation = useEditorStore((s) => s.stopSimulation);
   const activeRef = useRef<ActiveSim | null>(null);
   const startingRef = useRef(false);
+  const dragToolRef = useRef<DragTool | null>(null);
+  const { camera, gl } = useThree();
+
+  // Drag-инструмент (перетаскивание ткани мышью) — переключается нажатием
+  // DRAG_TOOL_KEY (не удержанием): нажал — вошли в режим drag, камера
+  // заблокирована; нажал ещё раз — вернулись к управлению камерой. Управление
+  // камерой (OrbitControls) отключается на всё время, пока режим drag активен,
+  // через onDragToolActiveChange. Поэтому объект controls, который получает
+  // сам DragTool — заглушка: реальным включением/выключением OrbitControls
+  // управляет React (см. CameraControls в SceneView.tsx), а не
+  // DragTool.renderer.controls.
+  const releaseDragTool = () => {
+    if (!dragToolRef.current) return;
+    dragToolRef.current.dispose();
+    dragToolRef.current = null;
+    onDragToolActiveChange?.(false);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.code !== DRAG_TOOL_KEY || ev.repeat) return;
+      const target = ev.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+
+      // Уже в режиме drag — второе нажатие переключает обратно на камеру,
+      // это допустимо в любой момент (даже если симуляция успела остановиться).
+      if (dragToolRef.current) {
+        ev.preventDefault();
+        releaseDragTool();
+        return;
+      }
+
+      if (useEditorStore.getState().simMode !== 'simulate' || !activeRef.current) return;
+      ev.preventDefault();
+
+      // wgpu_utils и 3d-configurator/client — соседние репозитории, не единый npm
+      // workspace, поэтому у каждого свой физический пакет `three` в node_modules —
+      // camera из useThree() (three клиента) и THREE.Camera из DragToolRendererLike
+      // (three wgpu_utils) структурно идентичны в рантайме, но TS видит их как разные
+      // номинальные типы (приватные поля брендируют класс). DragTool использует только
+      // публичный API (Raycaster.setFromCamera/getWorldDirection) — каст безопасен.
+      const renderer = {
+        domElement: gl.domElement,
+        camera,
+        controls: { enabled: true },
+      } as unknown as DragToolRendererLike;
+      dragToolRef.current = new DragTool(activeRef.current.ctx, renderer, activeRef.current.scene);
+      onDragToolActiveChange?.(true);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('blur', releaseDragTool);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('blur', releaseDragTool);
+      releaseDragTool();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, gl]);
+
+  // Если симуляция ставится на паузу/останавливается, пока активен режим
+  // drag — инструмент больше не на чем работать (см. runFrame ниже —
+  // активный dragSlot без шагов солвера просто "подвисает"), снимаем его.
+  useEffect(() => {
+    if (simMode !== 'simulate') releaseDragTool();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simMode]);
 
   useEffect(() => {
     if (simMode === 'simulate' && !activeRef.current && !startingRef.current) {

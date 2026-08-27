@@ -14,6 +14,7 @@ import { usePhysicsSceneApi } from '@/hooks/usePhysicsSceneApi';
 import { getStoredPhysicsServer } from '@/api/physicsSceneApi';
 import { usePhysicsDebugStore } from '@/store/usePhysicsDebugStore';
 import { toast } from '@/store/useToastStore';
+import { MATERIAL_PRESETS, materialPropertiesFromPreset } from '@/data/materialPresets';
 
 interface PhysicsSectionProps {
   object: SceneObjectData;
@@ -109,6 +110,7 @@ function FieldGroup({
 export function PhysicsSection({ object, onUpdate }: PhysicsSectionProps) {
   const { saveObjectMeta, loading } = usePhysicsSceneApi();
   const [saving, setSaving] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<number | ''>('');
   const showSeams = usePhysicsDebugStore((s) => s.showSeams);
   const showFixedPoints = usePhysicsDebugStore((s) => s.showFixedPoints);
   const toggleShowSeams = usePhysicsDebugStore((s) => s.toggleShowSeams);
@@ -143,6 +145,25 @@ export function PhysicsSection({ object, onUpdate }: PhysicsSectionProps) {
     onUpdate(object.id, { physicsMesh: { ...pm, [key]: value } });
   };
 
+  /**
+   * Применяет пресет ОДНИМ обновлением стора (не по полю через
+   * handleMaterialChange) — так это один шаг undo-истории, а не 10 подряд.
+   * Поля без аналога в пресете (m_stretch_stiffness, m_poisson_*,
+   * m_bending_stiffness) не трогаются, см. materialPropertiesFromPreset().
+   */
+  const handleApplyPreset = () => {
+    if (selectedPresetId === '') return;
+    const preset = MATERIAL_PRESETS.find((p) => p.id === selectedPresetId);
+    if (!preset) return;
+    onUpdate(object.id, {
+      physicsMesh: {
+        ...pm,
+        materialProperties: { ...pm.materialProperties, ...materialPropertiesFromPreset(preset) },
+      },
+    });
+    toast.success(`Материал «${preset.name_en}» применён — не забудьте сохранить meta.json`);
+  };
+
   return (
     <div className="mb-4 pb-4 border-b border-gray-700">
       <div className="flex items-center justify-between mb-3">
@@ -164,6 +185,32 @@ export function PhysicsSection({ object, onUpdate }: PhysicsSectionProps) {
         <span>
           {pm.vertexCount} вершин, {pm.primCount} треугольников
         </span>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-gray-400 text-xs mb-2">Пресет материала (KES-F)</label>
+        <div className="flex gap-2">
+          <select
+            value={selectedPresetId}
+            onChange={(e) => setSelectedPresetId(e.target.value === '' ? '' : Number(e.target.value))}
+            className="flex-1 min-w-0 bg-gray-700 text-white px-2 py-1.5 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-sm"
+          >
+            <option value="">— выбрать —</option>
+            {MATERIAL_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name_en} ({p.composition})
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleApplyPreset}
+            disabled={selectedPresetId === ''}
+            className="px-3 py-1.5 text-sm rounded bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white transition-colors"
+            title="Заменить Young/Shear/Bending/Density/Friction/Thickness выбранным пресетом"
+          >
+            Применить
+          </button>
+        </div>
       </div>
 
       <div className="mb-3">

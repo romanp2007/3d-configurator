@@ -37,15 +37,66 @@ function isClothMesh(physicsType: PhysicsMeshType): boolean {
   return (physicsType as number) === (PhysicsType.Cloth as number);
 }
 
-/** Отбирает видимые physicsMesh-объекты сцены, упорядоченные STATIC → CLOTH. */
+/** Половина стороны пола [м] — плоскость 2×GROUND_PLANE_HALF_SIZE. */
+const GROUND_PLANE_HALF_SIZE = 25;
+
+/**
+ * Синтетический статический коллайдер — плоскость пола на y=0, всегда
+ * добавляется первым STATIC-объектом сцены. Не соответствует никакому
+ * SceneObjectData (не выбирается/не редактируется в редакторе — совпадает
+ * визуально с декоративной плоскостью пола в SceneView.tsx, но именно ЭТОТ
+ * объект участвует в коллизиях, декоративная — нет).
+ */
+function buildGroundPlanePhysObject(vertexOffset: number, faceOffset: number): PhysObject {
+  const s = GROUND_PLANE_HALF_SIZE;
+  // 4 вершины, 2 треугольника, нормаль +Y (см. вывод винда в комментарии ниже).
+  const positions = new Float32Array([
+    -s, 0, -s,
+    -s, 0, s,
+    s, 0, s,
+    s, 0, -s,
+  ]);
+  // (v0,v1,v2) и (v0,v2,v3): cross(v1-v0, v2-v0) = (0, 4s², 0) — нормаль вверх.
+  const faces = new Uint32Array([0, 1, 2, 0, 2, 3]);
+
+  return new PhysObject({
+    uuid: '__ground_plane__',
+    physicsType: PhysicsType.Static,
+    positions,
+    faces,
+    vertexCount: 4,
+    primCount: 2,
+    getMat4: () => glMat4.create(),
+    vertexOffset,
+    faceOffset,
+    fixedVertices: [],
+    // Identity — positions уже в мировых координатах (y=0), доп. transform не нужен.
+    loc: glVec3.create(),
+    rot: glQuat.create(),
+    scale: glVec3.fromValues(1, 1, 1),
+  });
+}
+
+/**
+ * Отбирает видимые physicsMesh-объекты сцены, упорядоченные STATIC → CLOTH,
+ * и добавляет синтетическую плоскость пола (см. buildGroundPlanePhysObject)
+ * первым STATIC-объектом — иначе ткань падает бесконечно, не с чем
+ * сталкиваться, если сцена не содержит собственного манекена/подставки.
+ */
 export function buildSceneSimInputFromEditor(objects: SceneObjectData[]): SceneSimInput {
   const physicsObjects = objects.filter((o) => o.type === 'physicsMesh' && o.visible && o.physicsMesh);
+  
   const statics = physicsObjects.filter((o) => !isClothMesh(o.physicsMesh!.physicsType));
   const cloths = physicsObjects.filter((o) => isClothMesh(o.physicsMesh!.physicsType));
-  const ordered = [...statics, ...cloths];
+  
+  const groundPlane = buildGroundPlanePhysObject(0, 0);
 
-  let vertexOffset = 0;
-  let faceOffset = 0;
+  const ordered = [ ...statics, ...cloths];
+
+  
+  let vertexOffset = groundPlane.vertexCount;
+  let faceOffset = groundPlane.primCount;
+
   const built: PhysObject[] = ordered.map((o) => {
     const pm = o.physicsMesh!;
     const obj = new PhysObject({
@@ -61,33 +112,37 @@ export function buildSceneSimInputFromEditor(objects: SceneObjectData[]): SceneS
       vertexOffset,
       faceOffset,
       uv2D: pm.uv2D,
-      density: pm.materialProperties.m_density,
-      thickness: pm.materialProperties.m_thickness,
-      stretchStiffness: pm.materialProperties.m_stretch_stiffness,
+      layer:pm.materialProperties.layer,
       fixedVertices: pm.fixedVertices ?? [],
       loc: glVec3.fromValues(o.position[0], o.position[1], o.position[2]),
       rot: eulerToGlQuat(o.rotation),
       scale: glVec3.fromValues(o.scale[0], o.scale[1], o.scale[2]),
-      "ku": 5248.47,
-      "kv": 5633.4,
-      "ks": 19.3328,
-      "bendKu": 5.5917e-06,
-      "bendKv": 3.2373e-06,
-      "bendKs": 4.4145e-06
+      // Физические свойства материала:
+      density: pm.materialProperties.m_density, // кг/м^2
+      thickness: pm.materialProperties.m_thickness, // мм
+      stretchStiffness: pm.materialProperties.m_stretch_stiffness,
+      "ku": pm.materialProperties.m_young_warp,
+      "kv": pm.materialProperties.m_young_weft,
+      "ks": pm.materialProperties.m_shear_modulus,
+      "bendKu": pm.materialProperties.m_bending_warp,
+      "bendKv": pm.materialProperties.m_bending_weft,
+      "bendKs": pm.materialProperties.m_bending_shear
     });
     vertexOffset += obj.vertexCount;
     faceOffset += obj.primCount;
     return obj;
   });
 
-  const staticVertexCount = statics.reduce((s, o) => s + o.physicsMesh!.vertexCount, 0);
+  const staticVertexCount = statics.reduce((s, o) => s + o.physicsMesh!.vertexCount, 0) + groundPlane.vertexCount;
 
   return {
-    objects: built,
+    objects: [groundPlane,...built],
     totalVertexCount: vertexOffset,
     totalPrimCount: faceOffset,
-    staticCount: statics.length,
+    staticCount: statics.length+1,
+    rigidBodyCount: 0,
     clothCount: cloths.length,
+    rigidBodyVertexStart: staticVertexCount,
     clothVertexStart: staticVertexCount,
   };
 }

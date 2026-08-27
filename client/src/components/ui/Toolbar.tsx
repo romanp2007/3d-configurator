@@ -9,6 +9,7 @@ import { useSceneStore } from '@/store/useSceneStore';
 import { usePhysicsSceneApi } from '@/hooks/usePhysicsSceneApi';
 import { getStoredPhysicsServer } from '@/api/physicsSceneApi';
 import { toast } from '@/store/useToastStore';
+import { PhysicsEngineSettingsDialog } from './PhysicsEngineSettingsDialog';
 
 interface ToolbarProps {
   onSave: () => void;
@@ -45,6 +46,7 @@ export function Toolbar({
   const hasPhysicsObjects = objects.some((o) => o.type === 'physicsMesh');
   const { saveAllPhysicsMeta, loading: physicsSaving } = usePhysicsSceneApi();
   const [savingAll, setSavingAll] = useState(false);
+  const [engineSettingsOpen, setEngineSettingsOpen] = useState(false);
 
   const handleSaveAllPhysicsMeta = async () => {
     setSavingAll(true);
@@ -70,6 +72,7 @@ export function Toolbar({
   ];
 
   return (
+    <>
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
       <div className="flex gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg shadow-lg border border-gray-700">
         {/* Симуляция: edit → Симуляция (свежий старт) / simulate → Пауза
@@ -248,6 +251,17 @@ export function Toolbar({
           </button>
         )}
 
+        {/* Настройки Style3DSolverConfig (шаг интегрирования, контакты,
+            демпфирование, швы) — см. usePhysicsEngineSettingsStore.ts.
+            Применяются на следующем старте симуляции. */}
+        <button
+          onClick={() => setEngineSettingsOpen(true)}
+          className="px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+          title="Настройки физического движка (контакты, демпфирование, швы)"
+        >
+          <span className="text-sm font-medium">⚙ Физика</span>
+        </button>
+
         {/* Справка */}
         <button
           onClick={onHotkeys}
@@ -278,5 +292,10 @@ export function Toolbar({
         ))}
       </div>
     </div>
+    {/* Вне трансформированного контейнера тулбара (translate-x-1/2 создаёт
+        containing block для position:fixed у потомков — модалка внутри
+        него позиционировалась бы не от viewport, а от тулбара). */}
+    {engineSettingsOpen && <PhysicsEngineSettingsDialog onClose={() => setEngineSettingsOpen(false)} />}
+    </>
   );
 }

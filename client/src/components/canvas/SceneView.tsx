@@ -61,6 +61,7 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
     const showGrid = useEditorStore((state) => state.showGrid);
     const simMode = useEditorStore((state) => state.simMode);
     const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
+    const [isDragToolActive, setIsDragToolActive] = useState(false);
 
     return (
       <Canvas
@@ -95,8 +96,11 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
         {/* Сетка пола (условно отображается) */}
         {showGrid && <Grid />}
 
-        {/* Управление камерой */}
-        <CameraControls enabled={!isDraggingGizmo} />
+        {/* Управление камерой — также отключается, пока переключён режим
+            drag-инструмента ткани (см. PhysicsSimController, DRAG_TOOL_KEY —
+            повторное нажатие хоткея переключает обратно), иначе OrbitControls
+            перехватывает мышь вместо перетаскивания. */}
+        <CameraControls enabled={!isDraggingGizmo && !isDragToolActive} />
 
         {/* Drop zone для drag & drop */}
         <CanvasDropZone />
@@ -104,7 +108,7 @@ export const SceneView = forwardRef<ScreenshotHandle, SceneViewProps>(
         {/* Physics-симуляция (Style3DSolverScene) — активна только при
             simMode === 'simulate', см. Этап 7 плана. Ничего не рендерит сама,
             пишет позиции напрямую в геометрию physicsMesh-объектов. */}
-        <PhysicsSimController />
+        <PhysicsSimController onDragToolActiveChange={setIsDragToolActive} />
 
         {/* Просмотр швов/закреплённых точек (Этап 4b) — переключатели в PhysicsSection */}
         <PhysicsDebugOverlay />
