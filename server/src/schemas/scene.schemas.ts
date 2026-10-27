@@ -11,13 +11,27 @@ const MaterialSchema = z.object({
   textureUrl: z.string().url().optional(),
 });
 
-const ObjectTypeSchema = z.enum(['box', 'sphere', 'cylinder', 'cone', 'plane', 'torus', 'model']);
+const ObjectTypeSchema = z.enum(['box', 'sphere', 'cylinder', 'cone', 'plane', 'torus', 'model', 'assetMesh']);
+
+// Дискретизация примитива и физика объекта (см. ObjectSim/GeometryParams в
+// shared/types/scene.ts). Схемы намеренно свободные (запись из неизвестных ключей),
+// иначе zod молча отбросил бы новые поля при сохранении сцены.
+const GeometryParamsSchema = z.record(z.number());
+const SimSchema = z.object({
+  physicsType: z.enum(['none', 'static', 'rigid', 'cloth']),
+  collider: z.object({ kind: z.enum(['mesh', 'box', 'sphere', 'capsule', 'cylinder']), auto: z.boolean() }).passthrough(),
+  rigid: z.object({ density: z.number() }).passthrough(),
+  cloth: z.object({ pinned: z.enum(['none', 'corners']) }).passthrough(),
+});
 
 const SceneObjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   type: ObjectTypeSchema,
   modelUrl: z.string().optional(),
+  assetMesh: z.object({ assetId: z.string().min(1) }).optional(),
+  geometry: GeometryParamsSchema.optional(),
+  sim: SimSchema.optional(),
   position: Vec3Schema,
   rotation: Vec3Schema,
   scale: Vec3Schema,

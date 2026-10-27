@@ -9,7 +9,8 @@ export type ObjectType =
   | 'plane'
   | 'torus'
   | 'model'
-  | 'physicsMesh';
+  | 'physicsMesh'
+  | 'assetMesh';
 
 /**
  * Материал объекта
@@ -94,6 +95,96 @@ export interface PhysicsMeshData {
   fixedVertices?: number[];
 }
 
+// ---------------------------------------------------------------------------
+// Физика произвольных объектов редактора
+// (см. wiki/plans/3d_configurator_physics_objects.md)
+// ---------------------------------------------------------------------------
+
+/**
+ * Дискретизация примитива. Размер примитива задаётся scale объекта (все
+ * примитивы — единичные), здесь только число сегментов. Неуказанные поля
+ * берутся из DEFAULT_GEOMETRY_PARAMS (client/src/physics/primitiveMesh.ts).
+ * Какие поля читаются — зависит от type объекта:
+ *   box      — segX, segY, segZ
+ *   plane    — segX, segZ
+ *   sphere   — latSegments, lonSegments
+ *   cylinder, cone — radialSegments, heightSegments
+ *   torus    — majorSegments, minorSegments
+ */
+export interface GeometryParams {
+  segX?: number;
+  segY?: number;
+  segZ?: number;
+  latSegments?: number;
+  lonSegments?: number;
+  radialSegments?: number;
+  heightSegments?: number;
+  majorSegments?: number;
+  minorSegments?: number;
+}
+
+/**
+ * Тип физики объекта. 'none' — объект в симуляции не участвует.
+ * Строковый union, а не enum движка (PhysicsType): shared/ не должен зависеть
+ * от wgpu_utils (им пользуется и Express-сервер).
+ */
+export type SimPhysicsType = 'none' | 'static' | 'rigid' | 'cloth';
+
+/**
+ * Тип коллайдера. 'mesh' — треугольная сетка объекта; остальные —
+ * аналитические (только для rigid, см. ColliderKind в analytic_collider.ts).
+ */
+export type SimColliderKind = 'mesh' | 'box' | 'sphere' | 'capsule' | 'cylinder';
+
+/**
+ * Коллайдер объекта. Размеры — в ЛОКАЛЬНОМ пространстве объекта БЕЗ учёта
+ * scale (scale применяется при сборке сцены для солвера). При auto === true
+ * поля размеров игнорируются и вычисляются по мешу (подгонка).
+ */
+export interface SimColliderSettings {
+  kind: SimColliderKind;
+  auto: boolean;
+  /** Центр коллайдера в локальных координатах объекта. */
+  center?: [number, number, number];
+  /** box: полуразмеры по локальным осям X/Y/Z. */
+  halfExtents?: [number, number, number];
+  /** sphere/capsule/cylinder: радиус. */
+  radius?: number;
+  /** capsule/cylinder: полудлина (capsule — цилиндрической части без колпачков). */
+  halfLength?: number;
+  /** capsule/cylinder: ось, 0=X, 1=Y, 2=Z. */
+  axis?: 0 | 1 | 2;
+}
+
+/** Параметры rigid-тела. */
+export interface SimRigidSettings {
+  /** Плотность, кг/м³ (масса = плотность × объём). */
+  density: number;
+  /** Явная масса, кг; переопределяет density (нужна для незамкнутых мешей). */
+  mass?: number;
+}
+
+/** Параметры ткани (cloth). */
+export interface SimClothSettings {
+  materialProperties: PhysicsMaterialProperties;
+  /** Закрепление вершин: нет / четыре угла плоскости. */
+  pinned: 'none' | 'corners';
+}
+
+/** Настройки физики объекта (отсутствует = 'none'). */
+export interface ObjectSim {
+  physicsType: SimPhysicsType;
+  collider: SimColliderSettings;
+  rigid: SimRigidSettings;
+  cloth: SimClothSettings;
+}
+
+/** Ссылка на OBJ-ассет, вшитый в сборку клиента (client/src/assets/assetLibrary.ts). */
+export interface AssetMeshRef {
+  /** Имя файла ассета, например 'Wooden table 2.obj'. */
+  assetId: string;
+}
+
 /**
  * Данные объекта сцены
  */
@@ -103,6 +194,11 @@ export interface SceneObjectData {
   type: ObjectType;
   modelUrl?: string; // Для type === 'model'
   physicsMesh?: PhysicsMeshData; // Для type === 'physicsMesh'
+  assetMesh?: AssetMeshRef; // Для type === 'assetMesh'
+  /** Дискретизация примитива (box/sphere/cylinder/cone/plane/torus). */
+  geometry?: GeometryParams;
+  /** Физика объекта; не задано = 'none'. */
+  sim?: ObjectSim;
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];

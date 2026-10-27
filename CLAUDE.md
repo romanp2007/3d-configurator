@@ -39,7 +39,7 @@ Two-way sync pattern: gizmo manipulation → store update → UI panel reflects 
 
 Scenes are stored as a single JSON document in PostgreSQL's `Json` field (not normalized per-object). The `SceneData` structure contains camera state, environment settings, and a flat array of `SceneObjectData` entries. Types are defined in `shared/types/scene.ts`.
 
-Object types: `box | sphere | cylinder | cone | plane | torus | model`
+Object types: `box | sphere | cylinder | cone | plane | torus | model | physicsMesh | assetMesh`. Любой не-model объект может иметь `sim` (physicsType none/static/rigid/cloth, коллайдер, масса, материал ткани) и `geometry` (дискретизация примитива) — см. `wiki/plans/3d_configurator_physics_objects.md` в корне wgpu_utils.
 
 ### API
 

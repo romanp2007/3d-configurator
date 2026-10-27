@@ -55,6 +55,23 @@ export interface PhysicsEngineSettings {
   seamStiffness: number;
   /** Порог сближения [м] для слияния стежка. */
   seamMergeDistance: number;
+
+  /** Трение ткань↔всё (PT и EE-контакты ткани), 0 — без трения. */
+  contactFrictionMu: number;
+
+  // --- Rigid-тела (применяются, только если в сцене есть rigid; тогда numNewtonIters принудительно = 1) ---
+  /** Множитель жёсткости контактов тело↔статика/ткань (rigidContactStiffFactor). */
+  rigidContactStiffFactor: number;
+  /** Демпфирование контактов тела (rigidContactDamping). */
+  rigidContactDamping: number;
+  /** Трение тело↔всё (rigidContactFrictionMu). */
+  rigidContactFrictionMu: number;
+  /** Множитель жёсткости контактов тело↔тело (bodyBodyStiffFactor). */
+  bodyBodyStiffFactor: number;
+  /** Контактная толщина вершин тела [м] (rigidBodyContactThickness). */
+  rigidBodyContactThickness: number;
+  /** Запас AABB broad-phase [м] при наличии rigid-тел (paddingAabb). */
+  rigidPaddingAabb: number;
 }
 
 export const DEFAULT_PHYSICS_ENGINE_SETTINGS: PhysicsEngineSettings = {
@@ -78,6 +95,15 @@ export const DEFAULT_PHYSICS_ENGINE_SETTINGS: PhysicsEngineSettings = {
   adjustFactor: 1e5 / 100,
   seamStiffness: 1e4,
   seamMergeDistance: 0.03,
+
+  contactFrictionMu: 0,
+
+  rigidContactStiffFactor: 1,
+  rigidContactDamping: 1e-5,
+  rigidContactFrictionMu: 0.5,
+  bodyBodyStiffFactor: 0.1,
+  rigidBodyContactThickness: 0.004,
+  rigidPaddingAabb: 0.01,
 };
 
 interface PhysicsEngineSettingsStore {

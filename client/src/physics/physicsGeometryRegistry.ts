@@ -11,7 +11,7 @@
  * регистрация/чтение не должны триггерить re-render подписчиков.
  */
 
-import type { BufferGeometry } from 'three';
+import type { BufferGeometry, Object3D } from 'three';
 
 const registry = new Map<string, BufferGeometry>();
 
@@ -27,4 +27,23 @@ export function unregisterPhysicsGeometry(id: string, geometry: BufferGeometry):
 
 export function getPhysicsGeometry(id: string): BufferGeometry | undefined {
   return registry.get(id);
+}
+
+// ---------------------------------------------------------------------------
+// Object3D rigid-тел. Симуляция двигает rigid-тело, записывая матрицу прямо в
+// Object3D меша (matrixAutoUpdate = false), тоже мимо Zustand/React.
+// ---------------------------------------------------------------------------
+
+const objectRegistry = new Map<string, Object3D>();
+
+export function registerPhysicsObject3D(id: string, object: Object3D): void {
+  objectRegistry.set(id, object);
+}
+
+export function unregisterPhysicsObject3D(id: string, object: Object3D): void {
+  if (objectRegistry.get(id) === object) objectRegistry.delete(id);
+}
+
+export function getPhysicsObject3D(id: string): Object3D | undefined {
+  return objectRegistry.get(id);
 }

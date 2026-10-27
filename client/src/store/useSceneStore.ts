@@ -15,6 +15,8 @@ interface SceneStore {
 
   // CRUD операции
   addObject: (type: ObjectType) => string; // Возвращает ID созданного объекта
+  /** Добавляет меш-ассет (OBJ из assetLibrary) с заданным именем/масштабом/позицией; возвращает ID. */
+  addAssetMesh: (init: { assetId: string; name: string; scale: number; position: [number, number, number] }) => string;
   removeObject: (id: string) => void;
   updateObject: (id: string, patch: Partial<SceneObjectData>) => void;
   duplicateObject: (id: string) => string; // Дублирует объект, возвращает ID копии
@@ -43,6 +45,7 @@ function createDefaultObject(type: ObjectType): SceneObjectData {
     // сцены, см. usePhysicsSceneApi.importPhysicsScene → loadObjects()),
     // запись нужна только для exhaustive-типизации этой Record.
     physicsMesh: 'Физ-объект',
+    assetMesh: 'Меш',
   };
 
   return {
@@ -76,6 +79,19 @@ export const useSceneStore = create<SceneStore>()(
           objects: [...state.objects, newObject],
         }));
         return newObject.id;
+      },
+
+      // Добавить меш из ассетов (см. assets/assetLibrary.ts)
+      addAssetMesh: ({ assetId, name, scale, position }) => {
+        const obj: SceneObjectData = {
+          ...createDefaultObject('assetMesh'),
+          name,
+          assetMesh: { assetId },
+          position,
+          scale: [scale, scale, scale],
+        };
+        set((state) => ({ objects: [...state.objects, obj] }));
+        return obj.id;
       },
 
       // Удалить объект

@@ -9,6 +9,7 @@ import type { ObjectType } from '@shared/types/scene';
 import { uploadAsset, listAssets, type AssetListItem } from '@/api/assetsApi';
 import { useSceneStore } from '@/store/useSceneStore';
 import { toast } from '@/store/useToastStore';
+import { listAssetMeshes, loadAssetMesh, type AssetMeshInfo } from '@/assets/assetLibrary';
 
 interface CatalogItem {
   type: ObjectType;
@@ -73,6 +74,45 @@ function ModelItem({ asset }: { asset: AssetListItem }) {
   );
 }
 
+// --- Меш из ассетов (OBJ, вшитые в сборку) ---
+
+function AssetMeshItem({ asset }: { asset: AssetMeshInfo }) {
+  const addAssetMesh = useSceneStore((state) => state.addAssetMesh);
+  const [loading, setLoading] = useState(false);
+
+  const handleAdd = async () => {
+    setLoading(true);
+    try {
+      const mesh = await loadAssetMesh(asset.id);
+      const s = mesh.defaultScale;
+      // Ставим на пол: геометрия центрирована по AABB, значит центр на половине высоты.
+      addAssetMesh({
+        assetId: asset.id,
+        name: asset.label,
+        scale: s,
+        position: [(Math.random() - 0.5) * 2, (mesh.size[1] / 2) * s + 0.01, (Math.random() - 0.5) * 2],
+      });
+      toast.info(`«${asset.label}»: ${mesh.triangleCount} треугольников`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Не удалось загрузить ассет');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleAdd}
+      disabled={loading}
+      className="w-full flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-60 rounded-lg transition-colors text-left"
+      title={`Добавить ${asset.id}`}
+    >
+      <span className="text-lg flex-shrink-0">🪑</span>
+      <span className="text-xs text-gray-300 truncate">{loading ? 'Загрузка…' : asset.label}</span>
+    </button>
+  );
+}
+
 // --- Основной компонент ---
 
 export function ObjectCatalog() {
@@ -80,6 +120,7 @@ export function ObjectCatalog() {
   const [models, setModels] = useState<AssetListItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const assetMeshes = listAssetMeshes();
 
   const refreshModels = useCallback(async () => {
     try {
@@ -120,6 +161,17 @@ export function ObjectCatalog() {
         ))}
       </div>
       <p className="text-xs text-gray-400 mt-3">Перетащите объект на сцену</p>
+
+      {/* Меши из ассетов (OBJ, вшиты в сборку клиента) */}
+      <div className="mt-4 pt-4 border-t border-gray-700">
+        <h3 className="text-sm font-semibold text-white mb-2">Меши (OBJ)</h3>
+        <div className="space-y-1">
+          {assetMeshes.map((a) => (
+            <AssetMeshItem key={a.id} asset={a} />
+          ))}
+          {assetMeshes.length === 0 && <p className="text-xs text-gray-500">Нет OBJ-ассетов в сборке</p>}
+        </div>
+      </div>
 
       {/* Custom Models */}
       <div className="mt-4 pt-4 border-t border-gray-700">

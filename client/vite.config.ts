@@ -34,11 +34,14 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3001,
+    // Клиент читает исходники и ассеты соседнего репозитория-родителя (@wgpu, tests/assets/obj
+    // через import.meta.glob) — разрешаем раздачу из корня wgpu_utils.
+    fs: { allow: [path.resolve(__dirname, '../..')] },
+    port: 3005,
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3005',
         changeOrigin: true,
       },
     },

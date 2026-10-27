@@ -27,36 +27,55 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
-import { mat4 as glMat4 } from 'gl-matrix';
+import { mat4 as glMat4, quat as glQuat, vec3 as glVec3 } from 'gl-matrix';
 
 import { useEditorStore } from '@/store/useEditorStore';
 import { useSceneStore } from '@/store/useSceneStore';
 import { usePhysicsDebugStore } from '@/store/usePhysicsDebugStore';
 import { usePhysicsEngineSettingsStore } from '@/store/usePhysicsEngineSettingsStore';
 import { toast } from '@/store/useToastStore';
-import { getPhysicsGeometry } from '@/physics/physicsGeometryRegistry';
-import { buildSceneSimInputFromEditor } from '@/physics/buildSceneSimInputFromEditor';
+import { getPhysicsGeometry, getPhysicsObject3D } from '@/physics/physicsGeometryRegistry';
+import {
+  buildSceneSimInputFromEditor,
+  ensureSimAssetsLoaded,
+  type RigidFrame,
+} from '@/physics/buildSceneSimInputFromEditor';
+import { getCollisionMesh } from '@/physics/objectPhysics';
+import { buildSolverConfig } from '@/physics/solverConfig';
 
 import { GpuContext } from '@wgpu/api/gpu_context';
 import { buildSolverSceneData } from '@wgpu/physics/solver/scene_to_solver';
 import { Style3DSolverScene } from '@wgpu/physics/solver/style3d_scene';
 import { buildSeamTopologyFromSceneData } from '@wgpu/physics/seam/build_seam_topology';
-import { ExtractPhysicsPositionsKernel } from '@wgpu/render/update_render_bufs';
+import { ExtractKernelManager, type ExtractFlushTarget } from '@wgpu/render/update_render_bufs';
+import { ExtractRigidTransformsKernel } from '@wgpu/physics/rigid_body/extract_rigid_transforms_kernel';
 import { DragTool, type DragToolRendererLike } from '@wgpu/physics/pick/drag_tool';
 import type { SceneObjectData } from '@shared/types/scene';
 
 /** Хоткей переключения drag-инструмента (перетаскивание ткани мышью во время симуляции). */
 const DRAG_TOOL_KEY = 'Space';
 
-interface ClothExtractor {
-  objectId: string;
-  kernel: ExtractPhysicsPositionsKernel;
-}
+/**
+ * Цель flush() для ExtractKernelManager: ключ слота = id объекта сцены, а
+ * геометрия берётся из physicsGeometryRegistry (в приложении нет
+ * PrimitiveRenderer — позиции пишутся напрямую в THREE.BufferGeometry, см.
+ * шапку файла).
+ */
+const geometryFlushTarget: ExtractFlushTarget = {
+  getPositionAttribute: (objectId) =>
+    (getPhysicsGeometry(objectId)?.attributes.position as THREE.BufferAttribute | undefined) ?? null,
+  getGeometry: (objectId) => getPhysicsGeometry(objectId) ?? null,
+};
 
 interface ActiveSim {
   ctx: GpuContext;
   scene: Awaited<ReturnType<typeof Style3DSolverScene.create>>;
-  extractors: ClothExtractor[];
+  /** Извлечение вершин ткани; slotCount === 0, если ткани в сцене нет. */
+  extractors: ExtractKernelManager;
+  /** Извлечение поз rigid-тел (null — rigid-тел нет). */
+  rigidExtractor: ExtractRigidTransformsKernel | null;
+  /** Центр масс/scale rigid-тел в порядке bodyId — для сборки матрицы меша из позы тела. */
+  rigidFrames: RigidFrame[];
   /**
    * Промис текущего кадра, пока он не долетел до GPU и обратно (несколько
    * await внутри runFrame). null — кадр не выполняется, можно стартовать
@@ -79,16 +98,6 @@ interface ActiveSim {
   hasSeams: boolean;
   /** Снимок PhysicsEngineSettings.dt на момент старта (см. startSimulation). */
   dt: number;
-  /**
-   * Один общий staging-буфер (COPY_DST | MAP_READ) под результаты ВСЕХ
-   * extractors — вместо readData() на каждый кернел по отдельности (было
-   * 2×N точек CPU↔GPU синхронизации за кадр: submit+onSubmittedWorkDone на
-   * дисптач и ещё submit+mapAsync внутри readData() на каждый cloth-объект).
-   * Раскладка — конкатенация per-объектных vertexCount*3*4 байт в порядке
-   * sim.extractors (см. startSimulation). См. wiki/plans/
-   * physics_sim_fps_optimization.md, Этапы 0/A1.
-   */
-  readbackBuf: GPUBuffer;
 }
 
 async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
@@ -101,10 +110,17 @@ async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
   // usePhysicsEngineSettingsStore.ts.
   const engineSettings = usePhysicsEngineSettingsStore.getState().settings;
 
-  const input = buildSceneSimInputFromEditor(objects);
-  if (input.clothCount === 0) {
-    throw new Error('В сцене нет cloth-объектов (physicsMesh с physicsType = Cloth)');
+  // Ассеты, используемые объектами с физикой, подгружаются заранее (ленивые чанки).
+  await ensureSimAssetsLoaded(objects);
+  const build = buildSceneSimInputFromEditor(objects);
+  const input = build.input;
+  if (input.clothCount === 0 && input.rigidBodyCount === 0) {
+    throw new Error(
+      'В сцене нечего симулировать: нужен хотя бы один cloth (плоскость или physicsMesh Cloth) или rigid-объект',
+    );
   }
+  for (const w of build.warnings) toast.info(w);
+  const hasRigid = input.rigidBodyCount > 0;
 
   // Швы — загружены при импорте сцены в usePhysicsDebugStore (тот же
   // seam_collection.json, что и debug-оверлей, Этап 4b). Стежки — cloth-local
@@ -130,63 +146,37 @@ async function startSimulation(objects: SceneObjectData[]): Promise<ActiveSim> {
   const scene = await Style3DSolverScene.create(
     ctx,
     data,
-    {
-      numNewtonIters: engineSettings.numNewtonIters,
-      numPcgIters: engineSettings.numPcgIters,
-      numSubsteps: engineSettings.numSubsteps,
-      adjustFactor: engineSettings.adjustFactor,
-      contactFixedStiffness: engineSettings.contactFixedStiffness,
-      contactFixedStiffnessEe: engineSettings.contactFixedStiffnessEe,
-      contactDamping: engineSettings.contactDamping,
-      contactDampingEe: engineSettings.contactDampingEe,
-      contactStiffFactor: engineSettings.contactStiffFactor,
-      contactStiffFactorEe: engineSettings.contactStiffFactorEe,
-      contactHessReg: engineSettings.contactHessReg,
-      contactHessRegEe: engineSettings.contactHessRegEe,
-      stretchDamping: engineSettings.stretchDamping,
-      bendDamping: engineSettings.bendDamping,
-      // 1 слот перетаскивания — см. DragTool в PhysicsSimController() ниже
-      // (активируется удержанием DRAG_TOOL_KEY). 0 = кернел drag отключён.
-      maxDragPoints: 1,
-      ...(seamTopology && {
-        seamStiffness: engineSettings.seamStiffness,
-        seamMergeDistance: engineSettings.seamMergeDistance,
-        // Обязателен для seam-сцен: без него runtime-пересборка PD-матрицы
-        // после слияния стежков не выполняется, см. wiki/plans/seaming.md,
-        // «Открытые вопросы», п.3.
-        gpuPdMatrixRebuild: true,
-      }),
-    },
+    buildSolverConfig(engineSettings, { hasRigid, hasSeams: !!seamTopology }),
     seamTopology,
   );
 
-  const clothPhysObjects = input.objects.slice(input.staticCount);
-  const extractors: ClothExtractor[] = clothPhysObjects.map((physObj) => {
-    const sceneObj = objects.find((o) => o.physicsMesh?.uuid === physObj.uuid);
-    if (!sceneObj) throw new Error(`internal: нет SceneObjectData для uuid ${physObj.uuid}`);
+  // ExtractKernelManager: все cloth-кернелы пишут в ОДИН общий выходной буфер
+  // (каждый в свой участок), за кадр — один submit и один mapAsync вместо 2×N
+  // точек CPU↔GPU синхронизации. См. update_render_bufs.ts и wiki/plans/
+  // physics_sim_fps_optimization.md, Этапы 0/A1.
+  const extractors = new ExtractKernelManager(
+    ctx,
+    build.cloth.map(({ id, obj: physObj }) => {
+      const inv = glMat4.invert(glMat4.create(), physObj.getMat4());
+      if (!inv) {
+        const name = objects.find((o) => o.id === id)?.name ?? id;
+        throw new Error(`Вырожденный transform у объекта "${name}" — не удалось инвертировать`);
+      }
+      return {
+        name: id,
+        src: scene.solver.vertices,
+        vertexCount: physObj.vertexCount,
+        srcOffset: physObj.vertexOffset,
+        invTransform: Float32Array.from(inv),
+      };
+    }),
+  );
 
-    const inv = glMat4.invert(glMat4.create(), physObj.getMat4());
-    if (!inv) throw new Error(`Вырожденный transform у объекта "${sceneObj.name}" — не удалось инвертировать`);
+  const rb = scene.solver.rigidBodySolver;
+  const rigidExtractor =
+    hasRigid && rb ? new ExtractRigidTransformsKernel(ctx, rb.position, rb.rotation, build.rigid.length) : null;
 
-    const kernel = new ExtractPhysicsPositionsKernel(
-      ctx,
-      scene.solver.vertices,
-      physObj.vertexCount,
-      physObj.vertexOffset,
-      Float32Array.from(inv),
-    );
-    return { objectId: sceneObj.id, kernel };
-  });
-
-  // Один общий readback-буфер под все extractors разом — см. ActiveSim.readbackBuf.
-  const totalReadbackBytes = extractors.reduce((sum, { kernel }) => sum + kernel.vertexCount * 3 * 4, 0);
-  const readbackBuf = ctx.device.createBuffer({
-    label: 'extract_readback_combined',
-    size: totalReadbackBytes,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-  });
-
-  return { ctx, scene, extractors, framePromise: null, hasSeams: !!seamTopology, dt: engineSettings.dt, readbackBuf };
+  return { ctx, scene, extractors, rigidExtractor, rigidFrames: build.rigid, framePromise: null, hasSeams: !!seamTopology, dt: engineSettings.dt };
 }
 
 async function runFrame(sim: ActiveSim): Promise<void> {
@@ -199,76 +189,79 @@ async function runFrame(sim: ActiveSim): Promise<void> {
     await sim.scene.step(sim.dt);
   }
 
-  if (sim.extractors.length === 0) return;
+  if (sim.rigidExtractor) await extractRigidPoses(sim);
 
-  // Батчинг extractors (см. wiki/plans/physics_sim_fps_optimization.md,
-  // Этапы 0/A1): по одному command buffer на дисптач извлечения каждого
-  // cloth-объекта + ОДИН дополнительный command buffer, копирующий все
-  // per-объектные dstBuf в единый sim.readbackBuf. Все command buffers
-  // одной очереди устройства исполняются строго в порядке массива
-  // (гарантия WebGPU), поэтому copy-буфер, идущий последним, гарантированно
-  // видит уже готовые результаты всех дисптачей — явный
-  // await onSubmittedWorkDone() между ними не нужен.
-  const commandBuffers: GPUCommandBuffer[] = sim.extractors.map(({ kernel }) => kernel.runPass().finish());
+  if (sim.extractors.slotCount === 0) return;
 
-  const copyEncoder = sim.ctx.device.createCommandEncoder({ label: 'extract_readback_copy' });
-  let byteOffset = 0;
-  for (const { kernel } of sim.extractors) {
-    const byteLength = kernel.vertexCount * 3 * 4;
-    copyEncoder.copyBufferToBuffer(kernel.dstBuf.buffer, 0, sim.readbackBuf, byteOffset, byteLength);
-    byteOffset += byteLength;
-  }
-  commandBuffers.push(copyEncoder.finish());
+  // Один submit на все дисптачи извлечения + копию в общий staging и один
+  // mapAsync на кадр — вся механика внутри ExtractKernelManager (см.
+  // update_render_bufs.ts). computeNormals каждый кадр — заметная CPU-нагрузка
+  // на плотных мешах, но без него освещение деформированной ткани ломается.
+  await sim.extractors.extractAndFlush(geometryFlushTarget, { computeNormals: true });
+}
 
-  // ОДИН submit на весь кадр (было N) + ОДИН mapAsync (было N) — единственная
-  // точка CPU↔GPU синхронизации за кадр вместо 2×N.
-  sim.ctx.device.queue.submit(commandBuffers);
-  await sim.readbackBuf.mapAsync(GPUMapMode.READ);
-  try {
-    const mapped = sim.readbackBuf.getMappedRange();
-    byteOffset = 0;
-    for (const { objectId, kernel } of sim.extractors) {
-      const floatCount = kernel.vertexCount * 3;
-      const geom = getPhysicsGeometry(objectId);
-      if (geom) {
-        const attr = geom.attributes.position as THREE.BufferAttribute;
-        // View поверх mapped напрямую (без промежуточного clone) — валидна
-        // только до unmap() ниже, .set() копирует данные в attr.array сразу.
-        (attr.array as Float32Array).set(new Float32Array(mapped, byteOffset, floatCount));
-        attr.needsUpdate = true;
-        geom.computeVertexNormals()
-        // computeVertexNormals() каждый кадр — заметная CPU-нагрузка на плотных
-        // мешах; для MVP пропускаем (нормали остаются из rest-позы). См. Этап 7.
-      }
-      byteOffset += floatCount * 4;
-    }
-  } finally {
-    // Гарантируем unmap даже при ошибке разбора — иначе буфер навсегда
-    // застревает "mapped", и следующий кадр падает на повторном mapAsync().
-    sim.readbackBuf.unmap();
+/**
+ * Пишет позы rigid-тел в Object3D их мешей: матрица = M_тела · T(−scale∘COM) · S,
+ * где M_тела — поза центра масс из солвера, а T·S возвращают меш из системы тела
+ * (начало = центр масс, масштаб запечён) в локальную систему объекта. Геометрия
+ * при этом не меняется — двигается только матрица (matrixAutoUpdate = false).
+ */
+const _frameLocal = glMat4.create();
+const _frameWorld = glMat4.create();
+async function extractRigidPoses(sim: ActiveSim): Promise<void> {
+  const k = sim.rigidExtractor!;
+  sim.ctx.device.queue.submit([k.runPass().finish()]);
+  await sim.ctx.device.queue.onSubmittedWorkDone();
+  const mats = new Float32Array(await k.dstBuf.readData(sim.ctx));
+  for (let body = 0; body < sim.rigidFrames.length; body++) {
+    const f = sim.rigidFrames[body];
+    const o3d = getPhysicsObject3D(f.id);
+    if (!o3d) continue;
+    glMat4.fromRotationTranslationScale(
+      _frameLocal,
+      glQuat.create(),
+      glVec3.fromValues(-f.scale[0] * f.comLocal[0], -f.scale[1] * f.comLocal[1], -f.scale[2] * f.comLocal[2]),
+      glVec3.fromValues(f.scale[0], f.scale[1], f.scale[2]),
+    );
+    glMat4.multiply(_frameWorld, mats.subarray(body * 16, body * 16 + 16) as unknown as glMat4, _frameLocal);
+    o3d.matrixAutoUpdate = false;
+    o3d.matrix.fromArray(_frameWorld as unknown as number[]);
+    o3d.matrixWorldNeedsUpdate = true;
   }
 }
 
 function destroySimulation(sim: ActiveSim): void {
   sim.scene.destroy();
-  for (const { kernel } of sim.extractors) {
-    kernel.dstBuf.destroy();
-    kernel.paramsBuf.destroy();
-  }
-  sim.readbackBuf.destroy();
+  sim.extractors.dispose();
+  sim.rigidExtractor?.dstBuf.destroy();
   sim.ctx.device.destroy();
 }
 
-/** Возвращает геометрию объекта к исходной rest-позе (Stop). */
+/**
+ * Возвращает объекты к исходной rest-позе (Stop): вершины ткани — к rest-позициям,
+ * rigid-тела — к transform из стора (position/rotation/scale).
+ */
 function resetGeometries(objects: SceneObjectData[]): void {
   for (const obj of objects) {
-    if (obj.type !== 'physicsMesh' || !obj.physicsMesh) continue;
     const geom = getPhysicsGeometry(obj.id);
-    if (!geom) continue;
-    const attr = geom.attributes.position as THREE.BufferAttribute;
-    (attr.array as Float32Array).set(obj.physicsMesh.positions);
-    attr.needsUpdate = true;
-    geom.computeVertexNormals();
+    if (geom) {
+      const rest =
+        obj.type === 'physicsMesh' ? obj.physicsMesh?.positions : getCollisionMesh(obj)?.vertices;
+      if (rest) {
+        const attr = geom.attributes.position as THREE.BufferAttribute;
+        (attr.array as Float32Array).set(rest);
+        attr.needsUpdate = true;
+        geom.computeVertexNormals();
+      }
+    }
+
+    const o3d = getPhysicsObject3D(obj.id);
+    if (o3d && !o3d.matrixAutoUpdate) {
+      // position/quaternion/scale остались от R3F (стор не менялся) — пересобираем matrix из них.
+      o3d.matrixAutoUpdate = true;
+      o3d.updateMatrix();
+      o3d.matrixWorldNeedsUpdate = true;
+    }
   }
 }
 

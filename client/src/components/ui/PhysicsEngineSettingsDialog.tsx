@@ -52,6 +52,19 @@ const SEAMING_FIELDS: FieldSpec[] = [
   { key: 'seamMergeDistance', label: 'Seam merge dist [м]', step: 0.001 },
 ];
 
+const FRICTION_FIELDS: FieldSpec[] = [
+  { key: 'contactFrictionMu', label: 'Трение ткани', step: 0.01 },
+];
+
+const RIGID_FIELDS: FieldSpec[] = [
+  { key: 'rigidContactStiffFactor', label: 'Stiff factor тел', step: 0.01 },
+  { key: 'rigidContactDamping', label: 'Damping тел', step: 1e-6 },
+  { key: 'rigidContactFrictionMu', label: 'Трение тел', step: 0.05 },
+  { key: 'bodyBodyStiffFactor', label: 'Stiff factor тело↔тело', step: 0.01 },
+  { key: 'rigidBodyContactThickness', label: 'Толщина контакта [м]', step: 0.001 },
+  { key: 'rigidPaddingAabb', label: 'Запас AABB [м]', step: 0.001 },
+];
+
 function NumberField({
   label,
   value,
@@ -141,6 +154,8 @@ export function PhysicsEngineSettingsDialog({ onClose }: PhysicsEngineSettingsDi
           <FieldGroup title="Шаг интегрирования" fields={STEPPING_FIELDS} settings={settings} onFieldChange={setField} />
           <FieldGroup title="Контакты PT (вершина–треугольник)" fields={CONTACT_PT_FIELDS} settings={settings} onFieldChange={setField} />
           <FieldGroup title="Контакты EE (ребро–ребро)" fields={CONTACT_EE_FIELDS} settings={settings} onFieldChange={setField} />
+          <FieldGroup title="Трение ткани" fields={FRICTION_FIELDS} settings={settings} onFieldChange={setField} />
+          <FieldGroup title="Rigid-тела (при их наличии numNewtonIters = 1)" fields={RIGID_FIELDS} settings={settings} onFieldChange={setField} />
           <FieldGroup title="Демпфирование материала" fields={DAMPING_FIELDS} settings={settings} onFieldChange={setField} />
           <FieldGroup title="Швы / stiffness ramp-up" fields={SEAMING_FIELDS} settings={settings} onFieldChange={setField} />
         </div>
